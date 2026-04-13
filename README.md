@@ -1,36 +1,61 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Valley View Lost & Found System
 
-## Getting Started
+Initial implementation of the proposed BSc project using:
+- Next.js 16 (App Router)
+- TypeScript + Tailwind CSS
+- Supabase-ready data layer
 
-First, run the development server:
+## Current MVP Scope
+- Landing page and item search
+- Report lost/found form with privacy disclaimer gate
+- Role-based dashboard (`student`, `admin`, `pickup_point`)
+- Finder/claimer chat backed by Supabase tables + realtime
+- Claim submission and owner approval workflow
+- Pickup-point handover verification with custody logging
+- Notification logs (`email` + `sms_dummy`) on status changes
+- AI-assisted category/tag inference on item reports (with safe fallback)
+- Semantic item search with pgvector (`match_items`) + keyword fallback
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Setup
+1. Install dependencies:
+	```bash
+	npm install
+	```
+2. Copy env template:
+	```bash
+	cp .env.example .env.local
+	```
+3. Add Supabase values in `.env.local`:
+	- `NEXT_PUBLIC_SUPABASE_URL`
+	- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+	- Optional email settings: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`
+	- Optional AI settings: `OPENAI_API_KEY`, `OPENAI_TAG_MODEL`, `OPENAI_EMBED_MODEL`
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+4. (Optional but recommended) Apply SQL schema in Supabase SQL editor:
+	- `supabase/schema.sql`
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+5. Start dev server:
+	```bash
+	npm run dev
+	```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+6. Run automated tests:
+	```bash
+	npm test
+	```
 
-## Learn More
+## Routes
+- `/` landing page
+- `/items` browse/search items
+- `/report` report lost/found item
+- `/dashboard` role-based dashboard (`?role=student|admin|pickup_point`)
+- `/chat?itemId=<uuid>` privacy-gated chat restricted to item participants
+- `/notifications` user notification inbox with unread state
+- `/pickup` pickup-point handover code verification
 
-To learn more about Next.js, take a look at the following resources:
+## Next Build Steps
+- Add image-upload + vision-based tag extraction for found items
+- Add periodic backfill job for embeddings on legacy records
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Phase 4
+- Implementation plan: [PHASE4_PLAN.md](PHASE4_PLAN.md)
