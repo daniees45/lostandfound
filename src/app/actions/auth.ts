@@ -64,6 +64,8 @@ export async function login(
     }
     return { message: error.message };
   }
+
+  if (!data.user || !data.session) {
     return { message: "Sign-in failed. Please confirm your email or check your credentials." };
   }
 
