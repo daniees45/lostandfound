@@ -87,7 +87,7 @@ export default async function ItemDetailPage({
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-8">
-      <div className="mb-4 flex flex-wrap items-center gap-2 text-sm text-zinc-500">
+          <div className="mb-4 flex flex-wrap items-center gap-2 text-sm text-sky-600 dark:text-sky-400">
         <Link href="/items" className="hover:underline">
           Browse items
         </Link>
@@ -97,11 +97,11 @@ export default async function ItemDetailPage({
 
       <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
         <section>
-          <div className="overflow-hidden rounded-2xl border border-black/10 bg-white dark:border-white/10 dark:bg-zinc-950">
+          <div className="overflow-hidden rounded-2xl border border-sky-200 bg-white dark:border-sky-800 dark:bg-sky-950">
             {item.image_url ? (
               <img src={item.image_url} alt={item.title} className="h-[340px] w-full object-cover" />
             ) : (
-              <div className="flex h-[340px] items-center justify-center bg-zinc-100 text-sm text-zinc-500 dark:bg-zinc-900">
+              <div className="flex h-[340px] items-center justify-center bg-sky-100 text-sm text-sky-500 dark:bg-sky-900">
                 No image uploaded for this item.
               </div>
             )}
@@ -110,7 +110,7 @@ export default async function ItemDetailPage({
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <h1 className="text-3xl font-semibold">{item.title}</h1>
-                  <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">{item.description}</p>
+                  <p className="mt-2 text-sm text-sky-700 dark:text-sky-300">{item.description}</p>
                 </div>
                 <span className={`rounded-full px-3 py-1 text-xs ${badgeClass(item.status)}`}>
                   {item.status}
@@ -119,19 +119,19 @@ export default async function ItemDetailPage({
 
               <dl className="mt-6 grid gap-4 sm:grid-cols-2">
                 <div>
-                  <dt className="text-xs font-medium uppercase tracking-wide text-zinc-500">Category</dt>
+                  <dt className="text-xs font-medium uppercase tracking-wide text-sky-500">Category</dt>
                   <dd className="mt-1 text-sm">{item.category}</dd>
                 </div>
                 <div>
-                  <dt className="text-xs font-medium uppercase tracking-wide text-zinc-500">Location</dt>
+                  <dt className="text-xs font-medium uppercase tracking-wide text-sky-500">Location</dt>
                   <dd className="mt-1 text-sm">{item.location}</dd>
                 </div>
                 <div>
-                  <dt className="text-xs font-medium uppercase tracking-wide text-zinc-500">Reported on</dt>
+                  <dt className="text-xs font-medium uppercase tracking-wide text-sky-500">Reported on</dt>
                   <dd className="mt-1 text-sm">{formatDate(item.created_at)}</dd>
                 </div>
                 <div>
-                  <dt className="text-xs font-medium uppercase tracking-wide text-zinc-500">AI tags</dt>
+                  <dt className="text-xs font-medium uppercase tracking-wide text-sky-500">AI tags</dt>
                   <dd className="mt-1 text-sm">{item.ai_tags?.length ? item.ai_tags.join(", ") : "No AI tags"}</dd>
                 </div>
               </dl>
@@ -140,12 +140,12 @@ export default async function ItemDetailPage({
         </section>
 
         <aside className="space-y-4">
-          <section className="rounded-2xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-zinc-950">
+          <section className="rounded-2xl border border-sky-200 bg-white p-5 dark:border-sky-800 dark:bg-sky-950">
             <h2 className="text-lg font-medium">Actions</h2>
             <div className="mt-4 space-y-3">
               <Link
                 href={`/chat?itemId=${item.id}`}
-                className="block rounded-md border border-black/15 px-3 py-2 text-center text-sm hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+                className="block rounded-md border border-sky-300 px-3 py-2 text-center text-sm hover:bg-sky-100 dark:border-sky-700 dark:hover:bg-sky-900"
               >
                 Open chat
               </Link>
@@ -161,11 +161,11 @@ export default async function ItemDetailPage({
               ) : null}
 
               {!currentUserId ? (
-                <p className="text-sm text-zinc-500">Sign in to submit a claim or join chat.</p>
+                <p className="text-sm text-sky-600 dark:text-sky-400">Sign in to submit a claim or join chat.</p>
               ) : isOwner ? (
-                <p className="text-sm text-zinc-500">You reported this item.</p>
+                <p className="text-sm text-sky-600 dark:text-sky-400">You reported this item.</p>
               ) : claimStatus ? (
-                <p className="text-sm text-zinc-600 dark:text-zinc-300">
+                <p className="text-sm text-sky-700 dark:text-sky-300">
                   Your claim status: <strong>{claimStatus}</strong>
                 </p>
               ) : ["found", "held_at_pickup", "claimed"].includes(item.status) ? (
@@ -175,21 +175,21 @@ export default async function ItemDetailPage({
                     name="proofDescription"
                     rows={3}
                     placeholder="Optional: add identifying details"
-                    className="w-full rounded-md border border-black/15 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black/20 dark:border-white/20 dark:bg-black"
+                    className="w-full rounded-md border border-sky-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-sky-400 dark:border-sky-700 dark:bg-sky-950"
                   />
-                  <button className="w-full rounded-md bg-black px-4 py-2 text-sm text-white dark:bg-white dark:text-black">
+                  <button className="w-full rounded-md bg-sky-600 px-4 py-2 text-sm text-white hover:bg-sky-700 dark:bg-sky-500 dark:hover:bg-sky-400">
                     Submit claim
                   </button>
                 </form>
               ) : (
-                <p className="text-sm text-zinc-500">This item is not currently open for claims.</p>
+                <p className="text-sm text-sky-600 dark:text-sky-400">This item is not currently open for claims.</p>
               )}
             </div>
           </section>
 
-          <section className="rounded-2xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-zinc-950">
+          <section className="rounded-2xl border border-sky-200 bg-white p-5 dark:border-sky-800 dark:bg-sky-950">
             <h2 className="text-lg font-medium">Status timeline</h2>
-            <div className="mt-4 space-y-3 text-sm text-zinc-600 dark:text-zinc-300">
+            <div className="mt-4 space-y-3 text-sm text-sky-700 dark:text-sky-300">
               <p>
                 <strong>Reported:</strong> {formatDate(item.created_at)}
               </p>

@@ -13,7 +13,7 @@ export default function SignupPage() {
   return (
     <div className="mx-auto mt-16 w-full max-w-sm px-4">
       <h1 className="text-2xl font-semibold">Create account</h1>
-      <p className="mt-1 text-sm text-zinc-500">Valley View Lost &amp; Found</p>
+      <p className="mt-1 text-sm text-sky-500">Valley View Lost &amp; Found</p>
 
       <form action={action} className="mt-5 space-y-4">
         <label className="block text-sm">
@@ -22,7 +22,7 @@ export default function SignupPage() {
             name="fullName"
             required
             autoComplete="name"
-            className="w-full rounded-md border border-black/15 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-black/20 dark:border-white/20 dark:bg-black"
+            className="w-full rounded-md border border-sky-300 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-sky-400 dark:border-sky-700 dark:bg-sky-950"
           />
           {state?.errors?.fullName ? (
             <p className="mt-1 text-xs text-rose-600">
@@ -38,7 +38,7 @@ export default function SignupPage() {
             type="email"
             required
             autoComplete="email"
-            className="w-full rounded-md border border-black/15 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-black/20 dark:border-white/20 dark:bg-black"
+            className="w-full rounded-md border border-sky-300 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-sky-400 dark:border-sky-700 dark:bg-sky-950"
           />
           {state?.errors?.email ? (
             <p className="mt-1 text-xs text-rose-600">{state.errors.email[0]}</p>
@@ -52,7 +52,7 @@ export default function SignupPage() {
             type="password"
             required
             autoComplete="new-password"
-            className="w-full rounded-md border border-black/15 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-black/20 dark:border-white/20 dark:bg-black"
+            className="w-full rounded-md border border-sky-300 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-sky-400 dark:border-sky-700 dark:bg-sky-950"
           />
           {state?.errors?.password ? (
             <p className="mt-1 text-xs text-rose-600">
@@ -61,7 +61,7 @@ export default function SignupPage() {
           ) : null}
         </label>
 
-        <p className="rounded-md bg-zinc-100 px-3 py-2 text-sm text-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
+        <p className="rounded-md bg-sky-100 px-3 py-2 text-sm text-sky-800 dark:bg-sky-900 dark:text-sky-200">
           New accounts are created as <strong>student</strong>. Staff roles are assigned separately by an administrator.
         </p>
 
@@ -73,12 +73,12 @@ export default function SignupPage() {
 
         <button
           disabled={pending}
-          className="w-full rounded-md bg-black py-2 text-sm text-white disabled:opacity-60 dark:bg-white dark:text-black"
+          className="w-full rounded-md bg-sky-600 py-2 text-sm text-white hover:bg-sky-700 disabled:opacity-60 dark:bg-sky-500 dark:hover:bg-sky-400"
         >
           {pending ? "Creating account…" : "Create account"}
         </button>
 
-        <p className="text-center text-sm text-zinc-500">
+        <p className="text-center text-sm text-sky-600 dark:text-sky-400">
           Already have an account?{" "}
           <Link
             href="/auth/login"

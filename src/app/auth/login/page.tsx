@@ -18,7 +18,7 @@ function LoginForm() {
   return (
     <div className="mx-auto mt-20 w-full max-w-sm px-4">
       <h1 className="text-2xl font-semibold">Sign in</h1>
-      <p className="mt-1 text-sm text-zinc-500">Valley View Lost &amp; Found</p>
+      <p className="mt-1 text-sm text-sky-500">Valley View Lost &amp; Found</p>
 
       {message ? (
         <p className="mt-3 rounded-md bg-emerald-100 px-3 py-2 text-sm text-emerald-800">
@@ -36,7 +36,7 @@ function LoginForm() {
             type="email"
             required
             autoComplete="email"
-            className="w-full rounded-md border border-black/15 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-black/20 dark:border-white/20 dark:bg-black"
+            className="w-full rounded-md border border-sky-300 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-sky-400 dark:border-sky-700 dark:bg-sky-950"
           />
           {state?.errors?.email ? (
             <p className="mt-1 text-xs text-rose-600">{state.errors.email[0]}</p>
@@ -50,7 +50,7 @@ function LoginForm() {
             type="password"
             required
             autoComplete="current-password"
-            className="w-full rounded-md border border-black/15 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-black/20 dark:border-white/20 dark:bg-black"
+            className="w-full rounded-md border border-sky-300 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-sky-400 dark:border-sky-700 dark:bg-sky-950"
           />
           {state?.errors?.password ? (
             <p className="mt-1 text-xs text-rose-600">
@@ -67,16 +67,16 @@ function LoginForm() {
 
         <button
           disabled={pending}
-          className="w-full rounded-md bg-black py-2 text-sm text-white disabled:opacity-60 dark:bg-white dark:text-black"
+          className="w-full rounded-md bg-sky-600 py-2 text-sm text-white hover:bg-sky-700 disabled:opacity-60 dark:bg-sky-500 dark:hover:bg-sky-400"
         >
           {pending ? "Signing in…" : "Sign in"}
         </button>
 
-        <p className="text-center text-sm text-zinc-500">
+          <p className="text-center text-sm text-sky-600 dark:text-sky-400">
           No account?{" "}
           <Link
             href="/auth/signup"
-            className="font-medium text-zinc-900 underline dark:text-zinc-100"
+            className="font-medium text-sky-700 underline dark:text-sky-300"
           >
             Create one
           </Link>

@@ -27,13 +27,13 @@ export default function ReportPage() {
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-8">
       <h1 className="text-2xl font-semibold">Report Lost or Found Item</h1>
-      <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">
+          <p className="mt-2 text-sm text-sky-700 dark:text-sky-300">
         Submitting this form saves the report directly to the database.
       </p>
 
       <form
         action={action}
-        className="mt-6 space-y-4 rounded-xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-zinc-950"
+        className="mt-6 space-y-4 rounded-xl border border-sky-200 bg-white p-5 dark:border-sky-800 dark:bg-sky-950"
       >
         {/* hidden isFoundItem flag submitted as string */}
         <input type="hidden" name="isFoundItem" value={String(isFound)} />
@@ -53,7 +53,7 @@ export default function ReportPage() {
             <input
               name="title"
               required
-              className="w-full rounded-md border border-black/15 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-black/20 dark:border-white/20 dark:bg-black"
+              className="w-full rounded-md border border-sky-300 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-sky-400 dark:border-sky-700 dark:bg-sky-950"
             />
             {state?.errors?.title ? (
               <p className="mt-1 text-xs text-rose-600">{state.errors.title[0]}</p>
@@ -65,7 +65,7 @@ export default function ReportPage() {
             <select
               name="category"
               defaultValue="Electronics"
-              className="w-full rounded-md border border-black/15 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-black/20 dark:border-white/20 dark:bg-black"
+              className="w-full rounded-md border border-sky-300 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-sky-400 dark:border-sky-700 dark:bg-sky-950"
             >
               <option>Electronics</option>
               <option>Bags</option>
@@ -85,7 +85,7 @@ export default function ReportPage() {
             required
             onChange={(e) => handleDescriptionChange(e.target.value)}
             placeholder="Include identifiable details: color, brand, unique marks"
-            className="w-full rounded-md border border-black/15 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-black/20 dark:border-white/20 dark:bg-black"
+            className="w-full rounded-md border border-sky-300 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-sky-400 dark:border-sky-700 dark:bg-sky-950"
           />
           {state?.errors?.description ? (
             <p className="mt-1 text-xs text-rose-600">
@@ -94,9 +94,9 @@ export default function ReportPage() {
           ) : null}
         </label>
 
-        <div className="rounded-md border border-dashed border-black/20 p-3 text-xs dark:border-white/25">
+        <div className="rounded-md border border-dashed border-sky-300 p-3 text-xs dark:border-sky-700">
           <p className="font-medium">AI auto-tag preview</p>
-          <p className="mt-1 text-zinc-600 dark:text-zinc-400">
+          <p className="mt-1 text-sky-700 dark:text-sky-400">
             {aiTags
               ? `Suggested tags: ${aiTags}`
               : "Start typing a description to generate tags."}
@@ -109,7 +109,7 @@ export default function ReportPage() {
             <input
               name="location"
               required
-              className="w-full rounded-md border border-black/15 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-black/20 dark:border-white/20 dark:bg-black"
+              className="w-full rounded-md border border-sky-300 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-sky-400 dark:border-sky-700 dark:bg-sky-950"
             />
             {state?.errors?.location ? (
               <p className="mt-1 text-xs text-rose-600">
@@ -123,7 +123,7 @@ export default function ReportPage() {
               name="date"
               type="date"
               required
-              className="w-full rounded-md border border-black/15 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-black/20 dark:border-white/20 dark:bg-black"
+              className="w-full rounded-md border border-sky-300 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-sky-400 dark:border-sky-700 dark:bg-sky-950"
             />
           </label>
         </div>
@@ -134,12 +134,12 @@ export default function ReportPage() {
             name="image"
             type="file"
             accept="image/*"
-            className="w-full rounded-md border border-black/15 bg-white px-3 py-2 text-sm outline-none file:mr-3 file:rounded-md file:border-0 file:bg-black file:px-3 file:py-1.5 file:text-white focus:ring-2 focus:ring-black/20 dark:border-white/20 dark:bg-black dark:file:bg-white dark:file:text-black"
+            className="w-full rounded-md border border-sky-300 bg-white px-3 py-2 text-sm outline-none file:mr-3 file:rounded-md file:border-0 file:bg-sky-600 file:px-3 file:py-1.5 file:text-white hover:file:bg-sky-700 focus:ring-2 focus:ring-sky-400 dark:border-sky-700 dark:bg-sky-950 dark:file:bg-sky-500"
           />
-          <p className="mt-1 text-xs text-zinc-500">Attach a clear photo of the item. Maximum size: 5MB.</p>
+          <p className="mt-1 text-xs text-sky-600 dark:text-sky-400">Attach a clear photo of the item. Maximum size: 5MB.</p>
         </label>
 
-        <label className="flex items-start gap-2 rounded-md bg-zinc-100 p-3 text-xs dark:bg-zinc-900">
+        <label className="flex items-start gap-2 rounded-md bg-sky-100 p-3 text-xs dark:bg-sky-900">
           <input type="checkbox" required className="mt-0.5" />
           <span>
             I agree to the rules of conduct and privacy disclaimer. I understand
@@ -155,7 +155,7 @@ export default function ReportPage() {
 
         <button
           disabled={pending}
-          className="rounded-md bg-black px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-black"
+          className="rounded-md bg-sky-600 px-4 py-2 text-sm text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-sky-500 dark:hover:bg-sky-400"
         >
           {pending ? "Submitting…" : "Submit report"}
         </button>

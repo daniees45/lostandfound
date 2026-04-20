@@ -178,7 +178,7 @@ export default async function ItemsPage({
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold">Browse Items</h1>
-          <p className="text-sm text-zinc-600 dark:text-zinc-300">
+          <p className="text-sm text-sky-700 dark:text-sky-300">
             Items are grouped into Found and Lost categories.
           </p>
           <FlashBanner
@@ -199,9 +199,9 @@ export default async function ItemsPage({
             name="q"
             defaultValue={query}
             placeholder="Search by item, location, category"
-            className="w-72 rounded-md border border-black/15 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black/20 dark:border-white/20 dark:bg-black"
+            className="w-72 rounded-md border border-sky-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-sky-400 dark:border-sky-700 dark:bg-sky-950"
           />
-          <button className="rounded-md bg-black px-4 py-2 text-sm text-white dark:bg-white dark:text-black">
+          <button className="rounded-md bg-sky-600 px-4 py-2 text-sm text-white hover:bg-sky-700 dark:bg-sky-500 dark:hover:bg-sky-400">
             Search
           </button>
         </form>
@@ -214,7 +214,7 @@ export default async function ItemsPage({
             {foundItems.map((item) => (
               <article
                 key={item.id}
-                className="rounded-xl border border-black/10 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-zinc-950"
+                className="rounded-xl border border-sky-200 bg-white p-4 shadow-sm dark:border-sky-800 dark:bg-sky-950"
               >
                 {item.image_url ? (
                   <Link href={`/items/${item.id}`} className="mb-3 block overflow-hidden rounded-lg">
@@ -235,8 +235,8 @@ export default async function ItemsPage({
                     {item.status}
                   </span>
                 </div>
-                <p className="mb-3 text-sm text-zinc-600 dark:text-zinc-300">{item.description}</p>
-                <dl className="space-y-1 text-xs text-zinc-600 dark:text-zinc-400">
+                <p className="mb-3 text-sm text-sky-700 dark:text-sky-300">{item.description}</p>
+                <dl className="space-y-1 text-xs text-sky-700 dark:text-sky-400">
                   <div>
                     <dt className="inline font-medium">Category:</dt> <dd className="inline">{item.category}</dd>
                   </div>
@@ -256,13 +256,13 @@ export default async function ItemsPage({
                 <div className="mt-3 flex flex-wrap gap-2">
                   <Link
                     href={`/items/${item.id}`}
-                    className="inline-block rounded-md border border-black/15 px-3 py-1.5 text-xs hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+                    className="inline-block rounded-md border border-sky-300 px-3 py-1.5 text-xs hover:bg-sky-100 dark:border-sky-700 dark:hover:bg-sky-900"
                   >
                     View details
                   </Link>
                   <Link
                     href={`/chat?itemId=${item.id}`}
-                    className="inline-block rounded-md border border-black/15 px-3 py-1.5 text-xs hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+                    className="inline-block rounded-md border border-sky-300 px-3 py-1.5 text-xs hover:bg-sky-100 dark:border-sky-700 dark:hover:bg-sky-900"
                   >
                     Open chat
                   </Link>
@@ -270,11 +270,11 @@ export default async function ItemsPage({
 
                 <div className="mt-2 text-xs">
                   {!currentUserId ? (
-                    <p className="text-zinc-500">Sign in to submit a claim.</p>
+                    <p className="text-sky-600 dark:text-sky-400">Sign in to submit a claim.</p>
                   ) : item.user_id === currentUserId ? (
-                    <p className="text-zinc-500">You reported this item.</p>
+                    <p className="text-sky-600 dark:text-sky-400">You reported this item.</p>
                   ) : claimStatusByItem.get(item.id) ? (
-                    <p className="text-zinc-600 dark:text-zinc-300">
+                    <p className="text-sky-700 dark:text-sky-300">
                       Claim status: <strong>{claimStatusByItem.get(item.id)}</strong>
                     </p>
                   ) : (
@@ -284,9 +284,9 @@ export default async function ItemsPage({
                         name="proofDescription"
                         rows={2}
                         placeholder="Optional: add identifying details"
-                        className="w-full rounded-md border border-black/15 bg-white px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-black/20 dark:border-white/20 dark:bg-black"
+                        className="w-full rounded-md border border-sky-300 bg-white px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-sky-400 dark:border-sky-700 dark:bg-sky-950"
                       />
-                      <button className="rounded-md bg-black px-3 py-1.5 text-xs text-white dark:bg-white dark:text-black">
+                      <button className="rounded-md bg-sky-600 px-3 py-1.5 text-xs text-white hover:bg-sky-700 dark:bg-sky-500 dark:hover:bg-sky-400">
                         Submit claim
                       </button>
                     </form>
@@ -305,7 +305,7 @@ export default async function ItemsPage({
             {lostItems.map((item) => (
               <article
                 key={item.id}
-                className="rounded-xl border border-black/10 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-zinc-950"
+                className="rounded-xl border border-sky-200 bg-white p-4 shadow-sm dark:border-sky-800 dark:bg-sky-950"
               >
                 {item.image_url ? (
                   <Link href={`/items/${item.id}`} className="mb-3 block overflow-hidden rounded-lg">
@@ -326,8 +326,8 @@ export default async function ItemsPage({
                     {item.status}
                   </span>
                 </div>
-                <p className="mb-3 text-sm text-zinc-600 dark:text-zinc-300">{item.description}</p>
-                <dl className="space-y-1 text-xs text-zinc-600 dark:text-zinc-400">
+                <p className="mb-3 text-sm text-sky-700 dark:text-sky-300">{item.description}</p>
+                <dl className="space-y-1 text-xs text-sky-700 dark:text-sky-400">
                   <div>
                     <dt className="inline font-medium">Category:</dt> <dd className="inline">{item.category}</dd>
                   </div>
@@ -347,20 +347,20 @@ export default async function ItemsPage({
                 <div className="mt-3 flex flex-wrap gap-2">
                   <Link
                     href={`/items/${item.id}`}
-                    className="inline-block rounded-md border border-black/15 px-3 py-1.5 text-xs hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+                    className="inline-block rounded-md border border-sky-300 px-3 py-1.5 text-xs hover:bg-sky-100 dark:border-sky-700 dark:hover:bg-sky-900"
                   >
                     View details
                   </Link>
-                {currentUserId && item.user_id === currentUserId ? (
+                  {currentUserId && item.user_id === currentUserId ? (
                     <Link
                       href={`/chat?itemId=${item.id}`}
-                      className="inline-block rounded-md border border-black/15 px-3 py-1.5 text-xs hover:bg-black/5 dark:border-white/20 dark:hover:bg-white/10"
+                      className="inline-block rounded-md border border-sky-300 px-3 py-1.5 text-xs hover:bg-sky-100 dark:border-sky-700 dark:hover:bg-sky-900"
                     >
                       Open chat
                     </Link>
-                ) : null}
+                  ) : null}
                 </div>
-                <div className="mt-2 text-xs text-zinc-500">
+                <div className="mt-2 text-xs text-sky-600 dark:text-sky-400">
                   {item.user_id === currentUserId
                     ? "This is your lost report."
                     : "Lost reports are visible based on access rules."}
@@ -372,7 +372,7 @@ export default async function ItemsPage({
       ) : null}
 
       {items.length === 0 ? (
-        <p className="mt-6 text-sm text-zinc-600 dark:text-zinc-300">No items match your search.</p>
+        <p className="mt-6 text-sm text-sky-700 dark:text-sky-300">No items match your search.</p>
       ) : null}
     </div>
   );

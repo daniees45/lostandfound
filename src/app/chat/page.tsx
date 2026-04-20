@@ -376,11 +376,11 @@ function ChatContent() {
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-8">
       <h1 className="text-2xl font-semibold">Finder ↔ Claimer Chat</h1>
-      <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">
+      <p className="mt-2 text-sm text-sky-700 dark:text-sky-300">
         Anonymized communication preview with a mandatory privacy gate.
       </p>
 
-      <p className="mt-1 text-xs text-zinc-500">Item: {itemTitle}</p>
+      <p className="mt-1 text-xs text-sky-600 dark:text-sky-400">Item: {itemTitle}</p>
 
       {messageError ? (
         <p className="mt-3 text-sm text-rose-700 dark:text-rose-400">{messageError}</p>
@@ -391,20 +391,20 @@ function ChatContent() {
       ) : null}
 
       {!acceptanceLoaded ? (
-        <section className="mt-5 rounded-xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-zinc-950">
-          <p className="text-sm text-zinc-500">Loading chat preferences...</p>
+        <section className="mt-5 rounded-xl border border-sky-200 bg-white p-5 dark:border-sky-800 dark:bg-sky-950">
+          <p className="text-sm text-sky-600 dark:text-sky-400">Loading chat preferences...</p>
         </section>
       ) : !accepted ? (
-        <section className="mt-5 rounded-xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-zinc-950">
+        <section className="mt-5 rounded-xl border border-sky-200 bg-white p-5 dark:border-sky-800 dark:bg-sky-950">
           <h2 className="font-medium">Rules of Conduct & Privacy</h2>
-          <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-zinc-600 dark:text-zinc-300">
+          <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-sky-700 dark:text-sky-300">
             <li>Respectful communication only.</li>
             <li>Do not share bank details or OTPs.</li>
             <li>Meet in designated pickup points for safety.</li>
             <li>Contact details remain hidden unless both parties agree.</li>
           </ul>
           <button
-            className="mt-4 rounded-md bg-black px-4 py-2 text-sm text-white dark:bg-white dark:text-black"
+            className="mt-4 rounded-md bg-sky-600 px-4 py-2 text-sm text-white hover:bg-sky-700 dark:bg-sky-500"
             onClick={() => {
               const storageKey = itemId
                 ? `${CHAT_RULES_ACCEPTED_KEY_PREFIX}${itemId}`
@@ -417,18 +417,18 @@ function ChatContent() {
           </button>
         </section>
       ) : (
-        <section className="mt-5 rounded-xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-zinc-950">
+        <section className="mt-5 rounded-xl border border-sky-200 bg-white p-5 dark:border-sky-800 dark:bg-sky-950">
           <p className="rounded-md bg-amber-100 px-3 py-2 text-xs text-amber-900">
             Safety Notice: Meet at an approved pickup point. Do not share sensitive personal or financial details.
           </p>
 
           <div className="mt-4 space-y-3">
             {loading ? (
-              <p className="text-sm text-zinc-500">Loading chat...</p>
+              <p className="text-sm text-sky-600 dark:text-sky-400">Loading chat...</p>
             ) : !sessionId ? (
-              <p className="text-sm text-zinc-500">Waiting for a claimant to start a conversation.</p>
+              <p className="text-sm text-sky-600 dark:text-sky-400">Waiting for a claimant to start a conversation.</p>
             ) : messages.length === 0 ? (
-              <p className="text-sm text-zinc-500">No messages yet. Start the conversation.</p>
+              <p className="text-sm text-sky-600 dark:text-sky-400">No messages yet. Start the conversation.</p>
             ) : null}
 
             {messages.map((message) => (
@@ -436,8 +436,8 @@ function ChatContent() {
                 key={message.id}
                 className={`max-w-[88%] rounded-lg px-3 py-2 text-sm ${
                   message.sender_id === currentUserId
-                    ? "ml-auto bg-black text-white dark:bg-white dark:text-black"
-                    : "bg-zinc-100 dark:bg-zinc-800"
+                    ? "ml-auto bg-sky-700 text-white dark:bg-sky-500"
+                    : "bg-sky-100 dark:bg-sky-800"
                 }`}
               >
                 <p className="mb-1 text-[11px] uppercase opacity-70">{message.sender_role}</p>
@@ -454,11 +454,11 @@ function ChatContent() {
               disabled={!sessionId}
               placeholder="Type a message"
               rows={2}
-              className="w-full resize-y rounded-md border border-black/15 bg-white px-3 py-2 text-sm leading-6 outline-none focus:ring-2 focus:ring-black/20 dark:border-white/20 dark:bg-black"
+              className="w-full resize-y rounded-md border border-sky-300 bg-white px-3 py-2 text-sm leading-6 outline-none focus:ring-2 focus:ring-sky-400 dark:border-sky-700 dark:bg-sky-950"
             />
             <button
               disabled={!sessionId || isSending}
-              className="rounded-md bg-black px-4 py-2 text-sm text-white disabled:opacity-60 dark:bg-white dark:text-black"
+              className="rounded-md bg-sky-600 px-4 py-2 text-sm text-white hover:bg-sky-700 disabled:opacity-60 dark:bg-sky-500"
             >
               {!sessionId ? "Waiting" : isSending ? "Sending" : "Send"}
             </button>
@@ -475,7 +475,7 @@ export default function ChatPage() {
       fallback={
         <div className="mx-auto w-full max-w-3xl px-4 py-8">
           <h1 className="text-2xl font-semibold">Finder ↔ Claimer Chat</h1>
-          <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">Loading chat...</p>
+          <p className="mt-2 text-sm text-sky-700 dark:text-sky-300">Loading chat...</p>
         </div>
       }
     >

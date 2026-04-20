@@ -97,7 +97,7 @@ export default async function PickupPage() {
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-8">
       <h1 className="text-2xl font-semibold">Pickup Point Handover</h1>
-      <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">
+      <p className="mt-2 text-sm text-sky-700 dark:text-sky-300">
         Staff can receive items into custody and complete the final return to an approved claimant.
       </p>
 

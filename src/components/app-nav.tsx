@@ -39,9 +39,9 @@ export async function AppNav() {
   }
 
   return (
-    <header className="border-b border-black/10 bg-white/80 backdrop-blur dark:border-white/10 dark:bg-black/70">
+    <header className="border-b border-sky-700 bg-sky-600 shadow-sm dark:border-sky-900 dark:bg-sky-900">
       <nav className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">
-        <Link href="/" className="text-sm font-semibold tracking-wide">
+        <Link href="/" className="text-sm font-semibold tracking-wide text-white">
           VVU Lost &amp; Found
         </Link>
         <ul className="flex flex-wrap items-center gap-2 text-sm">
@@ -49,7 +49,7 @@ export async function AppNav() {
             <li key={link.href}>
               <Link
                 href={link.href}
-                className="rounded-md px-3 py-1.5 hover:bg-black/5 dark:hover:bg-white/10"
+                className="rounded-md px-3 py-1.5 text-sky-100 hover:bg-sky-700 hover:text-white dark:hover:bg-sky-800"
               >
                 {link.label}
               </Link>
@@ -61,11 +61,11 @@ export async function AppNav() {
                 <li key={link.href}>
                   <Link
                     href={link.href}
-                    className="rounded-md px-3 py-1.5 hover:bg-black/5 dark:hover:bg-white/10"
+                    className="rounded-md px-3 py-1.5 text-sky-100 hover:bg-sky-700 hover:text-white dark:hover:bg-sky-800"
                   >
                     {link.label}
                     {link.href === "/notifications" && unreadNotifications > 0 ? (
-                      <span className="ml-1.5 rounded-full bg-blue-600 px-1.5 py-0.5 text-[11px] text-white">
+                      <span className="ml-1.5 rounded-full bg-white px-1.5 py-0.5 text-[11px] text-sky-700">
                         {unreadNotifications}
                       </span>
                     ) : null}
@@ -77,7 +77,7 @@ export async function AppNav() {
           {user ? (
             <li>
               <form action={signOut}>
-                <button className="rounded-md border border-black/15 px-3 py-1.5 text-xs hover:bg-zinc-100 dark:border-white/20 dark:hover:bg-zinc-800">
+                <button className="rounded-md border border-sky-400 px-3 py-1.5 text-xs text-sky-100 hover:bg-sky-700 dark:border-sky-700 dark:hover:bg-sky-800">
                   Sign out
                 </button>
               </form>
@@ -87,7 +87,7 @@ export async function AppNav() {
               <li>
                 <Link
                   href="/auth/login"
-                  className="rounded-md px-3 py-1.5 hover:bg-black/5 dark:hover:bg-white/10"
+                  className="rounded-md px-3 py-1.5 text-sky-100 hover:bg-sky-700 hover:text-white dark:hover:bg-sky-800"
                 >
                   Sign in
                 </Link>
@@ -95,7 +95,7 @@ export async function AppNav() {
               <li>
                 <Link
                   href="/auth/signup"
-                  className="rounded-md bg-black px-3 py-1.5 text-white dark:bg-white dark:text-black"
+                  className="rounded-md bg-white px-3 py-1.5 text-sky-700 font-medium hover:bg-sky-50 dark:bg-sky-100 dark:text-sky-900"
                 >
                   Sign up
                 </Link>

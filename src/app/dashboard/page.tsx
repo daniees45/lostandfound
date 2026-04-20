@@ -23,7 +23,7 @@ function statusBadge(status: Item["status"]) {
     returned: "bg-zinc-200 text-zinc-800",
     held_at_pickup: "bg-amber-100 text-amber-800",
   };
-  return map[status] ?? "bg-zinc-100 text-zinc-700";
+  return map[status] ?? "bg-sky-100 text-sky-700";
 }
 
 export default async function DashboardPage({
@@ -106,9 +106,9 @@ export default async function DashboardPage({
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold">Dashboard</h1>
-          <p className="mt-1 text-sm text-zinc-500">
+          <p className="mt-1 text-sm text-sky-600 dark:text-sky-400">
             Signed in as <strong>{fullName}</strong> ·{" "}
-            <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs dark:bg-zinc-800">
+            <span className="rounded-full bg-sky-100 px-2 py-0.5 text-xs text-sky-800 dark:bg-sky-900 dark:text-sky-200">
               {role}
             </span>
           </p>
@@ -121,13 +121,12 @@ export default async function DashboardPage({
         <div className="flex gap-2">
           <Link
             href="/report"
-            className="rounded-md bg-black px-3 py-1.5 text-sm text-white dark:bg-white dark:text-black"
+            className="rounded-md bg-sky-600 px-3 py-1.5 text-sm text-white hover:bg-sky-700 dark:bg-sky-500 dark:hover:bg-sky-400"
           >
             + Report item
           </Link>
           <form action={signOut}>
-            <button className="rounded-md border border-black/15 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-white/20 dark:hover:bg-zinc-800">
-              Sign out
+            <button className="rounded-md border border-sky-300 px-3 py-1.5 text-sm hover:bg-sky-100 dark:border-sky-700 dark:hover:bg-sky-900">
             </button>
           </form>
         </div>
@@ -139,17 +138,16 @@ export default async function DashboardPage({
           {role === "student" ? "My Reports" : "All Items"}
         </h2>
         {(role === "student" ? items : allItems).length === 0 ? (
-          <p className="text-sm text-zinc-500">
-            No items yet.{" "}
+          <p className="text-sm text-sky-600 dark:text-sky-400">{" "}
             <Link href="/report" className="underline">
               Report one now.
             </Link>
           </p>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-black/10 dark:border-white/10">
+          <div className="overflow-x-auto rounded-xl border border-sky-200 dark:border-sky-800">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-black/10 bg-zinc-50 text-left dark:border-white/10 dark:bg-zinc-900">
+                <tr className="border-b border-sky-200 bg-sky-50 text-left dark:border-sky-800 dark:bg-sky-950">
                   <th className="px-4 py-2 font-medium">Title</th>
                   <th className="px-4 py-2 font-medium">Category</th>
                   <th className="px-4 py-2 font-medium">Location</th>
@@ -161,13 +159,13 @@ export default async function DashboardPage({
                 {(role === "student" ? items : allItems).map((item) => (
                   <tr
                     key={item.id}
-                    className="border-b border-black/5 last:border-0 hover:bg-zinc-50 dark:border-white/5 dark:hover:bg-zinc-900"
+                    className="border-b border-sky-100 last:border-0 hover:bg-sky-50 dark:border-sky-900 dark:hover:bg-sky-950"
                   >
                     <td className="px-4 py-2 font-medium">{item.title}</td>
-                    <td className="px-4 py-2 text-zinc-600 dark:text-zinc-300">
+                    <td className="px-4 py-2 text-sky-700 dark:text-sky-300">
                       {item.category}
                     </td>
-                    <td className="px-4 py-2 text-zinc-600 dark:text-zinc-300">
+                    <td className="px-4 py-2 text-sky-700 dark:text-sky-300">
                       {item.location}
                     </td>
                     <td className="px-4 py-2">
@@ -175,7 +173,7 @@ export default async function DashboardPage({
                         {item.status}
                       </span>
                     </td>
-                    <td className="px-4 py-2 text-zinc-500">
+                    <td className="px-4 py-2 text-sky-600 dark:text-sky-400">
                       {item.created_at
                         ? new Date(item.created_at).toLocaleDateString()
                         : "—"}
@@ -195,7 +193,7 @@ export default async function DashboardPage({
           <div className="flex gap-2">
             <Link
               href="/pickup"
-              className="rounded-md border border-black/15 px-3 py-1.5 text-sm hover:bg-zinc-100 dark:border-white/20 dark:hover:bg-zinc-800"
+              className="rounded-md border border-sky-300 px-3 py-1.5 text-sm hover:bg-sky-100 dark:border-sky-700 dark:hover:bg-sky-900"
             >
               Verify handover code
             </Link>
@@ -206,22 +204,22 @@ export default async function DashboardPage({
       <section className="mt-8">
         <h2 className="mb-3 font-medium">Pending Claims On My Items</h2>
         {pendingClaims.length === 0 ? (
-          <p className="text-sm text-zinc-500">No pending claims right now.</p>
+          <p className="text-sm text-sky-600 dark:text-sky-400">No pending claims right now.</p>
         ) : (
           <div className="space-y-3">
             {pendingClaims.map((claim) => (
               <article
                 key={claim.id}
-                className="rounded-xl border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-zinc-950"
+                className="rounded-xl border border-sky-200 bg-white p-4 dark:border-sky-800 dark:bg-sky-950"
               >
                 <p className="text-sm">
                   <strong>Item:</strong> {itemTitleById.get(claim.item_id) ?? claim.item_id}
                 </p>
-                <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
+                <p className="mt-1 text-sm text-sky-700 dark:text-sky-300">
                   <strong>Claimant:</strong> {claim.claimant_id}
                 </p>
                 {claim.proof_description ? (
-                  <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
+                  <p className="mt-1 text-sm text-sky-700 dark:text-sky-300">
                     <strong>Proof:</strong> {claim.proof_description}
                   </p>
                 ) : null}

@@ -33,12 +33,12 @@ function ReleaseCard({ item }: { item: HeldPickupItem }) {
   }, [router, state?.success]);
 
   return (
-    <article className="rounded-xl border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-zinc-950">
+    <article className="rounded-xl border border-sky-200 bg-white p-4 dark:border-sky-800 dark:bg-sky-950">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="text-base font-medium">{item.title}</h3>
-          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">Location: {item.location}</p>
-          <p className="mt-1 text-xs text-zinc-500">
+          <p className="mt-1 text-sm text-sky-700 dark:text-sky-300">Location: {item.location}</p>
+          <p className="mt-1 text-xs text-sky-600 dark:text-sky-400">
             Held since {item.created_at ? new Date(item.created_at).toLocaleDateString() : "unknown date"}
           </p>
         </div>
@@ -47,13 +47,13 @@ function ReleaseCard({ item }: { item: HeldPickupItem }) {
 
       {item.approvedClaim ? (
         <>
-          <div className="mt-4 rounded-lg bg-zinc-50 p-3 text-sm dark:bg-zinc-900">
+          <div className="mt-4 rounded-lg bg-sky-50 p-3 text-sm dark:bg-sky-900">
             <p>
               <strong>Approved claimant:</strong> {item.approvedClaim.claimantName}
             </p>
-            <p className="mt-1 text-zinc-600 dark:text-zinc-300">{item.approvedClaim.claimantEmail}</p>
+            <p className="mt-1 text-sky-700 dark:text-sky-300">{item.approvedClaim.claimantEmail}</p>
             {item.approvedClaim.proofDescription ? (
-              <p className="mt-2 text-zinc-600 dark:text-zinc-300">
+              <p className="mt-1 text-sky-700 dark:text-sky-300">
                 <strong>Claim proof:</strong> {item.approvedClaim.proofDescription}
               </p>
             ) : null}
@@ -68,7 +68,7 @@ function ReleaseCard({ item }: { item: HeldPickupItem }) {
               <select
                 name="verificationMethod"
                 defaultValue="id_card"
-                className="w-full rounded-md border border-black/15 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-black/20 dark:border-white/20 dark:bg-black"
+                className="w-full rounded-md border border-sky-300 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-sky-400 dark:border-sky-700 dark:bg-sky-950"
               >
                 <option value="id_card">Student ID checked</option>
                 <option value="manual_override">Manual override</option>
@@ -84,7 +84,7 @@ function ReleaseCard({ item }: { item: HeldPickupItem }) {
                 name="notes"
                 rows={3}
                 placeholder="Optional notes about identity confirmation or handoff context"
-                className="w-full rounded-md border border-black/15 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black/20 dark:border-white/20 dark:bg-black"
+                className="w-full rounded-md border border-sky-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-sky-400 dark:border-sky-700 dark:bg-sky-950"
               />
               {state?.errors?.notes?.[0] ? (
                 <p className="mt-1 text-xs text-rose-600">{state.errors.notes[0]}</p>
@@ -112,7 +112,7 @@ function ReleaseCard({ item }: { item: HeldPickupItem }) {
           </form>
         </>
       ) : (
-        <p className="mt-4 text-sm text-zinc-500">
+        <p className="mt-4 text-sm text-sky-600 dark:text-sky-400">
           No approved claimant is attached yet. Approve a claim before final release.
         </p>
       )}
@@ -139,9 +139,9 @@ export function PickupManager({ heldItems }: { heldItems: HeldPickupItem[] }) {
 
   return (
     <div className="space-y-8">
-      <section className="rounded-xl border border-black/10 bg-white p-5 dark:border-white/10 dark:bg-zinc-950">
+      <section className="rounded-xl border border-sky-200 bg-white p-5 dark:border-sky-800 dark:bg-sky-950">
         <h2 className="text-lg font-medium">Receive item into pickup custody</h2>
-        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">
+          <p className="mt-2 text-sm text-sky-700 dark:text-sky-300">
           Verify the finder handover code to move an item into pickup custody.
         </p>
 
@@ -155,14 +155,14 @@ export function PickupManager({ heldItems }: { heldItems: HeldPickupItem[] }) {
               value={handoverCode}
               onChange={(event) => setHandoverCode(event.target.value.replace(/\D/g, ""))}
               placeholder="e.g. 483921"
-              className="w-full rounded-md border border-black/15 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-black/20 dark:border-white/20 dark:bg-black"
+              className="w-full rounded-md border border-sky-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-sky-400 dark:border-sky-700 dark:bg-sky-950"
             />
             {verifyState?.errors?.handoverCode?.[0] ? (
               <p className="mt-1 text-xs text-rose-600">{verifyState.errors.handoverCode[0]}</p>
             ) : null}
           </label>
 
-          <div className="grid gap-2 text-xs text-zinc-600 dark:text-zinc-300">
+            <div className="grid gap-2 text-xs text-sky-700 dark:text-sky-300">
             <p>1. Finder drops item and provides generated code.</p>
             <p>2. Officer verifies code and marks status as held_at_pickup.</p>
             <p>3. Approved claimant presents ID for final release.</p>
@@ -170,7 +170,7 @@ export function PickupManager({ heldItems }: { heldItems: HeldPickupItem[] }) {
 
           <button
             disabled={verifyPending}
-            className="rounded-md bg-black px-4 py-2 text-sm text-white disabled:opacity-60 dark:bg-white dark:text-black"
+            className="rounded-md bg-sky-600 px-4 py-2 text-sm text-white hover:bg-sky-700 disabled:opacity-60 dark:bg-sky-500 dark:hover:bg-sky-400"
           >
             {verifyPending ? "Verifying..." : "Verify code"}
           </button>
@@ -192,13 +192,13 @@ export function PickupManager({ heldItems }: { heldItems: HeldPickupItem[] }) {
       <section>
         <div className="mb-4">
           <h2 className="text-lg font-medium">Held items awaiting release</h2>
-          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">
+          <p className="mt-1 text-sm text-sky-700 dark:text-sky-300">
             Release items only after confirming the approved claimant identity.
           </p>
         </div>
 
         {heldItems.length === 0 ? (
-          <p className="rounded-xl border border-black/10 bg-white p-4 text-sm text-zinc-500 dark:border-white/10 dark:bg-zinc-950">
+          <p className="rounded-xl border border-sky-200 bg-white p-4 text-sm text-sky-600 dark:border-sky-800 dark:bg-sky-950">
             No items are currently held at pickup.
           </p>
         ) : (
