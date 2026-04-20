@@ -23,6 +23,16 @@ export async function login(
   _state: AuthState,
   formData: FormData
 ): Promise<AuthState> {
+  if (
+    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  ) {
+    return {
+      message:
+        "Authentication service is not configured. Please contact the administrator.",
+    };
+  }
+
   const parsed = LoginSchema.safeParse({
     email: formData.get("email"),
     password: formData.get("password"),
@@ -42,10 +52,18 @@ export async function login(
   const { data, error } = await supabase.auth.signInWithPassword(parsed.data);
 
   if (error) {
+    if (
+      error.message.includes("DOCTYPE") ||
+      error.message.includes("not valid JSON") ||
+      error.message.includes("Failed to fetch")
+    ) {
+      return {
+        message:
+          "Cannot reach the authentication server. Please try again later.",
+      };
+    }
     return { message: error.message };
   }
-
-  if (!data.user || !data.session) {
     return { message: "Sign-in failed. Please confirm your email or check your credentials." };
   }
 
