@@ -18,6 +18,7 @@ const authLinks = [
 export async function AppNav() {
   let user = null;
   let unreadNotifications = 0;
+  let userRole: string | null = null;
 
   if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
     try {
@@ -32,6 +33,13 @@ export async function AppNav() {
           .eq("user_id", user.id)
           .eq("is_read", false);
         unreadNotifications = count ?? 0;
+
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", user.id)
+          .single();
+        userRole = (profile?.role as string) ?? null;
       }
     } catch {
       // not yet configured
@@ -73,6 +81,17 @@ export async function AppNav() {
                 </li>
               ))
             : null}
+
+          {user && userRole === "admin" ? (
+            <li>
+              <Link
+                href="/admin"
+                className="rounded-md bg-white/20 px-3 py-1.5 text-white hover:bg-white/30 font-medium"
+              >
+                Admin
+              </Link>
+            </li>
+          ) : null}
 
           {user ? (
             <li>

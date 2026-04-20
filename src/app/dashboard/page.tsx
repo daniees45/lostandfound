@@ -127,6 +127,7 @@ export default async function DashboardPage({
           </Link>
           <form action={signOut}>
             <button className="rounded-md border border-sky-300 px-3 py-1.5 text-sm hover:bg-sky-100 dark:border-sky-700 dark:hover:bg-sky-900">
+              Sign out
             </button>
           </form>
         </div>
