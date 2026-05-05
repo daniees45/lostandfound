@@ -18,7 +18,7 @@ const STATUS_COLOR: Record<string, string> = {
   held_at_pickup: "bg-purple-100 text-purple-700",
 };
 
-async function getRecentItems(): Promise<{ lost: Item[]; found: Item[] }> {
+async function getRecentItems(): Promise<{ lost: Item[]; found: Item[]; now: number }> {
   try {
     const supabase = await createSupabaseServerClient();
     const { data } = await supabase
@@ -30,26 +30,27 @@ async function getRecentItems(): Promise<{ lost: Item[]; found: Item[] }> {
 
     const items = (data ?? []) as Item[];
     return {
+      now: Date.now(),
       lost: items.filter((i) => i.status === "lost").slice(0, 6),
       found: items.filter((i) => i.status === "found" || i.status === "held_at_pickup").slice(0, 6),
     };
   } catch {
-    return { lost: [], found: [] };
+    return { now: Date.now(), lost: [], found: [] };
   }
 }
 
-function ItemCard({ item }: { item: Item }) {
+function getTimeAgo(createdAt: string, now: number): string {
+  const diff = now - new Date(createdAt).getTime();
+  const days = Math.floor(diff / 86400000);
+  if (days === 0) return "Today";
+  if (days === 1) return "Yesterday";
+  return `${days}d ago`;
+}
+
+function ItemCard({ item, now }: { item: Item; now: number }) {
   const statusLabel = STATUS_LABEL[item.status] ?? item.status;
   const statusColor = STATUS_COLOR[item.status] ?? "bg-sky-100 text-sky-700";
-  const ago = item.created_at
-    ? (() => {
-        const diff = Date.now() - new Date(item.created_at).getTime();
-        const days = Math.floor(diff / 86400000);
-        if (days === 0) return "Today";
-        if (days === 1) return "Yesterday";
-        return `${days}d ago`;
-      })()
-    : null;
+  const ago = item.created_at ? getTimeAgo(item.created_at, now) : null;
 
   return (
     <Link
@@ -93,7 +94,7 @@ function ItemCard({ item }: { item: Item }) {
 }
 
 export default async function Home() {
-  const { lost, found } = await getRecentItems();
+  const { lost, found, now } = await getRecentItems();
   const hasItems = lost.length > 0 || found.length > 0;
 
   return (
@@ -107,7 +108,7 @@ export default async function Home() {
           Lost &amp; Found Management System
         </h1>
         <p className="mt-3 max-w-2xl text-sky-700 dark:text-sky-300">
-          Lost something on campus? Found an item? Report it here and we'll help reunite it with its owner.
+          Lost something on campus? Found an item? Report it here and we&apos;ll help reunite it with its owner.
         </p>
 
         <form action="/items" className="mt-6 flex flex-col gap-2 sm:flex-row">
@@ -181,7 +182,7 @@ export default async function Home() {
               </div>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {lost.map((item) => (
-                  <ItemCard key={item.id} item={item} />
+                  <ItemCard key={item.id} item={item} now={now} />
                 ))}
               </div>
             </section>
@@ -206,7 +207,7 @@ export default async function Home() {
               </div>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {found.map((item) => (
-                  <ItemCard key={item.id} item={item} />
+                  <ItemCard key={item.id} item={item} now={now} />
                 ))}
               </div>
             </section>
