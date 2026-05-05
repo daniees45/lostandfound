@@ -112,7 +112,14 @@ export async function suggestTagsAndCategory(input: TaggingInput): Promise<Taggi
       return fallbackTagging(input);
     }
 
-    const data = await response.json();
+    const text = await response.text();
+    
+    // If response is HTML (error page), fall back
+    if (text.startsWith("<")) {
+      return fallbackTagging(input);
+    }
+
+    const data = JSON.parse(text);
     const content = data?.choices?.[0]?.message?.content;
 
     if (typeof content !== "string") {

@@ -24,7 +24,14 @@ export async function generateEmbedding(text: string): Promise<number[] | null> 
       return null;
     }
 
-    const data = await response.json();
+    const responseText = await response.text();
+    
+    // If response is HTML (error page), return null
+    if (responseText.startsWith("<")) {
+      return null;
+    }
+
+    const data = JSON.parse(responseText);
     const embedding = data?.data?.[0]?.embedding;
 
     if (!Array.isArray(embedding)) {
