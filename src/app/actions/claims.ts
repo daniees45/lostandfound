@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { notifyStatusChange } from "@/lib/notifications";
+import { assessClaimCredibility, getEvidenceQuestions } from "@/lib/ai-service-client";
 import { z } from "zod";
 
 const CreateClaimSchema = z.object({
@@ -48,7 +49,7 @@ export async function createClaim(
 
   const { data: item, error: itemError } = await supabase
     .from("items")
-    .select("id, user_id, status")
+    .select("id, user_id, status, category, description")
     .eq("id", parsed.data.itemId)
     .maybeSingle();
 
@@ -80,10 +81,28 @@ export async function createClaim(
     return { message: `You already have a ${existingClaim.status} claim for this item.` };
   }
 
+  const proofText = parsed.data.proofDescription ?? "";
+  const credibility = await assessClaimCredibility(
+    proofText,
+    item.category ?? "Others",
+    item.description ?? ""
+  );
+  const evidence = await getEvidenceQuestions(item.category ?? "Others", item.description ?? "");
+
+  const aiMetaLines: string[] = [];
+  if (credibility?.credibility_score != null) {
+    aiMetaLines.push(`[AI credibility score: ${credibility.credibility_score}]`);
+  }
+  if (Array.isArray(evidence?.questions) && evidence.questions.length > 0) {
+    aiMetaLines.push(`[AI evidence prompts: ${evidence.questions.slice(0, 2).join(" | ")}]`);
+  }
+
+  const enrichedProof = [proofText, ...aiMetaLines].filter(Boolean).join("\n\n");
+
   const { error } = await supabase.from("claims").insert({
     item_id: item.id,
     claimant_id: user.id,
-    proof_description: parsed.data.proofDescription ?? null,
+    proof_description: enrichedProof || null,
     status: "pending",
   });
 

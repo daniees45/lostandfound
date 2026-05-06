@@ -85,6 +85,26 @@ export default async function ItemDetailPage({
     }
   }
 
+  // ── Smart matches: fetch opposite-type items in same category ────────────
+  const oppositeStatuses =
+    item.status === "lost" ? ["found", "held_at_pickup"] : ["lost"];
+  const { data: matchData } = await supabase
+    .from("items")
+    .select("id, title, category, location, status, created_at")
+    .in("status", oppositeStatuses)
+    .eq("category", item.category)
+    .neq("id", item.id)
+    .order("created_at", { ascending: false })
+    .limit(3);
+  const possibleMatches = (matchData ?? []) as Array<{
+    id: string;
+    title: string;
+    category: string;
+    location: string;
+    status: string;
+    created_at: string;
+  }>;
+
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-8">
           <div className="mb-4 flex flex-wrap items-center gap-2 text-sm text-sky-600 dark:text-sky-400">
@@ -209,6 +229,35 @@ export default async function ItemDetailPage({
               ) : null}
             </div>
           </section>
+
+          {/* Smart matches: opposite-type items in same category */}
+          {possibleMatches.length > 0 ? (
+            <section className="rounded-2xl border border-emerald-200 bg-white p-5 dark:border-emerald-800 dark:bg-sky-950">
+              <h2 className="text-lg font-medium text-emerald-700 dark:text-emerald-400">
+                Possible Matches
+              </h2>
+              <p className="mt-1 text-xs text-sky-600 dark:text-sky-400">
+                {item.status === "lost"
+                  ? "These found items in the same category may be yours."
+                  : "Someone may have reported this item as lost."}
+              </p>
+              <ul className="mt-3 space-y-2">
+                {possibleMatches.map((m) => (
+                  <li key={m.id}>
+                    <Link
+                      href={`/items/${m.id}`}
+                      className="block rounded-md border border-emerald-100 p-2.5 text-sm hover:bg-emerald-50 dark:border-emerald-900 dark:hover:bg-emerald-950"
+                    >
+                      <p className="font-medium">{m.title}</p>
+                      <p className="mt-0.5 text-xs text-sky-600 dark:text-sky-400">
+                        {m.location} &middot; {formatDate(m.created_at)}
+                      </p>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
         </aside>
       </div>
     </div>

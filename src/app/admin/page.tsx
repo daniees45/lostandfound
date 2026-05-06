@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { Item } from "@/lib/types";
 import { AdminItemsTable } from "@/components/admin-items-table";
 import { AdminUsersTable, AdminClaimsTable } from "@/components/admin-users-table";
+import { AdminCopilot } from "@/components/admin-copilot";
 
 type Profile = {
   id: string;
@@ -113,6 +114,9 @@ export default async function AdminPage() {
           <p className="mt-1 text-sm text-sky-600 dark:text-sky-400">Total claims</p>
         </div>
       </div>
+
+      {/* AI Admin Copilot */}
+      <AdminCopilot stats={{ items: items.length, users: users.length, claims: claims.length }} />
 
       {/* Items CRUD */}
       <section className="mb-10">

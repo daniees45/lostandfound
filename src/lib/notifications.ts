@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { sendEmail } from "@/lib/email";
+import { prioritizeNotifications } from "@/lib/ai-service-client";
 
 type NotifyStatusChangeInput = {
   supabase: SupabaseClient;
@@ -34,6 +35,16 @@ export async function notifyStatusChange({
 }: NotifyStatusChangeInput) {
   const message = `Update: \"${itemTitle}\" is now marked as ${newStatus}.`;
 
+  // Determine notification priority before logging
+  const prioritized = await prioritizeNotifications([
+    { user_id: userId, message, type: "status_change", status: newStatus, item_title: itemTitle },
+  ]);
+  const priorityItem = prioritized[0] as Record<string, unknown> | undefined;
+  const priorityScore: number =
+    typeof priorityItem?.priority_score === "number" ? priorityItem.priority_score : 0.5;
+  const priorityLabel =
+    priorityScore >= 0.7 ? "[HIGH]" : priorityScore >= 0.4 ? "[NORMAL]" : "[LOW]";
+
   const emailResult = await sendEmail({
     to: email ?? "",
     subject: "Lost & Found status update",
@@ -48,5 +59,14 @@ export async function notifyStatusChange({
     await logNotification(supabase, userId, "email", message, "queued");
   }
 
-  await logNotification(supabase, userId, "sms_dummy", `[SMS PREVIEW] ${message}`, "sent");
+  // Only send SMS for normal/high priority notifications (score >= 0.4)
+  if (priorityScore >= 0.4) {
+    await logNotification(
+      supabase,
+      userId,
+      "sms_dummy",
+      `${priorityLabel} [SMS PREVIEW] ${message}`,
+      "sent"
+    );
+  }
 }

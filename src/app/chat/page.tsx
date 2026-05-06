@@ -3,6 +3,7 @@
 import { FormEvent, Suspense, startTransition, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
+import { checkMessageSafety } from "@/lib/ai-service-client";
 
 const CHAT_RULES_ACCEPTED_KEY_PREFIX = "lostfound_chat_rules_accepted_item_";
 
@@ -27,6 +28,7 @@ function ChatContent() {
   const [messageError, setMessageError] = useState<string | null>(null);
   const [chatInfo, setChatInfo] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
+  const [safetyWarning, setSafetyWarning] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   const router = useRouter();
@@ -356,18 +358,31 @@ function ChatContent() {
 
     const text = draft.trim();
     setIsSending(true);
+    setSafetyWarning(null);
     setDraft("");
+
+    const safety = await checkMessageSafety(text);
+    if (safety && safety.allow_send === false) {
+      setSafetyWarning(safety.warnings?.[0] ?? "Message blocked by safety policy.");
+      setDraft(text);
+      setIsSending(false);
+      return;
+    }
+
+    const body = safety?.redacted_message ?? text;
 
     const { error } = await supabase.from("messages").insert({
       session_id: sessionId,
       sender_id: currentUserId,
       sender_role: senderRole,
-      body: text,
+      body,
     });
 
     if (error) {
       setMessageError(error.message);
       setDraft(text);
+    } else if (safety?.warnings?.length) {
+      setSafetyWarning(safety.warnings[0]);
     }
 
     setIsSending(false);
@@ -388,6 +403,10 @@ function ChatContent() {
 
       {chatInfo ? (
         <p className="mt-3 text-sm text-amber-800 dark:text-amber-300">{chatInfo}</p>
+      ) : null}
+
+      {safetyWarning ? (
+        <p className="mt-2 text-sm text-rose-700 dark:text-rose-400">{safetyWarning}</p>
       ) : null}
 
       {!acceptanceLoaded ? (

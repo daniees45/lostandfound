@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
-import { createItem, type ReportState } from "@/app/actions/items";
+import { useActionState, useRef, useState, useEffect } from "react";
+import Link from "next/link";
+import { createItem, checkForSimilarItems, type ReportState } from "@/app/actions/items";
 
 export default function ReportPage() {
   const [state, action, pending] = useActionState<ReportState, FormData>(
@@ -11,6 +12,38 @@ export default function ReportPage() {
   const [isFound, setIsFound] = useState(false);
   const descRef = useRef<HTMLTextAreaElement>(null);
   const [aiTags, setAiTags] = useState("");
+  const [title, setTitle] = useState("");
+  const [similarItems, setSimilarItems] = useState<
+    Array<{ id: string; title: string; category: string; location: string; status: string }>
+  >([]);
+  const [checkingDuplicates, setCheckingDuplicates] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Debounced duplicate check whenever title changes
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (title.trim().length < 4) {
+      setSimilarItems([]);
+      return;
+    }
+    debounceRef.current = setTimeout(async () => {
+      setCheckingDuplicates(true);
+      try {
+        const results = await checkForSimilarItems({
+          title,
+          description: descRef.current?.value ?? "",
+          status: isFound ? "found" : "lost",
+        });
+        setSimilarItems(results);
+      } finally {
+        setCheckingDuplicates(false);
+      }
+    }, 700);
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [title, isFound]);
 
   function handleDescriptionChange(value: string) {
     const tags: string[] = [];
@@ -47,12 +80,38 @@ export default function ReportPage() {
           This is a found-item report
         </label>
 
+        {/* Duplicate / smart-match warning */}
+        {checkingDuplicates ? (
+          <p className="text-xs text-sky-500">Checking for similar reports…</p>
+        ) : similarItems.length > 0 ? (
+          <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs dark:border-amber-700 dark:bg-amber-950">
+            <p className="font-semibold text-amber-800 dark:text-amber-300">
+              ⚠ {similarItems.length} similar {isFound ? "lost" : "found"} report{similarItems.length > 1 ? "s" : ""} already exist. Check before submitting:
+            </p>
+            <ul className="mt-1 space-y-0.5">
+              {similarItems.map((it) => (
+                <li key={it.id}>
+                  <Link
+                    href={`/items/${it.id}`}
+                    target="_blank"
+                    className="text-amber-700 underline dark:text-amber-400"
+                  >
+                    {it.title} — {it.location}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="text-sm">
             <span className="mb-1 block">Item title</span>
             <input
               name="title"
               required
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
               className="w-full rounded-md border border-sky-300 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-sky-400 dark:border-sky-700 dark:bg-sky-950"
             />
             {state?.errors?.title ? (

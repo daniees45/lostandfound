@@ -4,6 +4,11 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { suggestTagsAndCategory } from "@/lib/ai-tagging";
 import { generateEmbedding, toPgVectorLiteral } from "@/lib/embeddings";
+import {
+  normalizeMultilingualReport,
+  generateItemSummary,
+  extractTagsFromImageUrl,
+} from "@/lib/ai-service-client";
 import { z } from "zod";
 
 const ITEM_IMAGE_BUCKET = "item-images";
@@ -94,16 +99,39 @@ export async function createItem(
     };
   }
 
-  const ai = await suggestTagsAndCategory({
+  const normalized = await normalizeMultilingualReport({
     title: parsed.data.title,
     description: parsed.data.description,
     category: parsed.data.category,
+    location: parsed.data.location,
   });
 
-  const embeddingSource = `${parsed.data.title}\n${parsed.data.description}\n${ai.tags.join(" ")}`;
+  const normalizedTitle = normalized?.title ?? parsed.data.title;
+  const normalizedDescription = normalized?.description ?? parsed.data.description;
+
+  const ai = await suggestTagsAndCategory({
+    title: normalizedTitle,
+    description: normalizedDescription,
+    category: parsed.data.category,
+  });
+
+  const summary = await generateItemSummary({
+    title: normalizedTitle,
+    description: normalizedDescription,
+    category: ai.category,
+    location: parsed.data.location,
+  });
+
+  const finalDescription = summary?.summary
+    ? `${normalizedDescription}\n\nSummary: ${summary.summary}`
+    : normalizedDescription;
+
+  const embeddingSource = `${normalizedTitle}\n${finalDescription}\n${ai.tags.join(" ")}`;
   const embedding = await generateEmbedding(embeddingSource);
 
   let imageUrl: string | null = null;
+  let visionTags: string[] = [];
+  let visionCategory: string | null = null;
 
   if (uploadedImage) {
     const extension = uploadedImage.name.includes(".")
@@ -132,14 +160,24 @@ export async function createItem(
 
     const { data: publicImage } = supabase.storage.from(ITEM_IMAGE_BUCKET).getPublicUrl(objectPath);
     imageUrl = publicImage.publicUrl;
+
+    const vision = await extractTagsFromImageUrl(imageUrl);
+    if (Array.isArray(vision?.suggested_tags)) {
+      visionTags = vision.suggested_tags.filter((tag: unknown) => typeof tag === "string") as string[];
+    }
+    if (typeof vision?.suggested_category === "string") {
+      visionCategory = vision.suggested_category;
+    }
   }
+
+  const mergedTags = Array.from(new Set([...ai.tags, ...visionTags])).slice(0, 10);
 
   const { error } = await supabase.from("items").insert({
     user_id: user.id,
-    title: parsed.data.title,
-    category: ai.category,
-    description: parsed.data.description,
-    ai_tags: ai.tags,
+    title: normalizedTitle,
+    category: visionCategory ?? ai.category,
+    description: finalDescription,
+    ai_tags: mergedTags,
     embedding: embedding ? toPgVectorLiteral(embedding) : null,
     location: parsed.data.location,
     status: parsed.data.status,
@@ -163,4 +201,44 @@ export async function createItem(
   }
 
   redirect(`/dashboard?reportSuccess=1&reportMessage=${reportMessage}`);
+}
+
+// ── Similar item lookup (used for duplicate warning on report page) ─────────
+export async function checkForSimilarItems(input: {
+  title: string;
+  description: string;
+  status: "lost" | "found";
+}): Promise<Array<{ id: string; title: string; category: string; location: string; status: string }>> {
+  if (!input.title || input.title.trim().length < 3) return [];
+
+  const supabase = await createSupabaseServerClient();
+
+  // Look for opposite-type items that might be a match
+  const searchStatuses =
+    input.status === "lost" ? ["found", "held_at_pickup"] : ["lost"];
+
+  const keywords = input.title
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((w) => w.length > 3)
+    .slice(0, 4);
+
+  if (keywords.length === 0) return [];
+
+  const orFilter = keywords.map((k) => `title.ilike.%${k}%`).join(",");
+
+  const { data } = await supabase
+    .from("items")
+    .select("id, title, category, location, status")
+    .in("status", searchStatuses)
+    .or(orFilter)
+    .limit(4);
+
+  return (data ?? []) as Array<{
+    id: string;
+    title: string;
+    category: string;
+    location: string;
+    status: string;
+  }>;
 }
