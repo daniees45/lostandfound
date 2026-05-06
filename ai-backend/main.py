@@ -1,4 +1,5 @@
 """FastAPI server for Lost & Found AI services"""
+import os
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -27,9 +28,14 @@ from services import (
 app = FastAPI(title="Lost & Found AI Services", version="1.0.0")
 
 # CORS configuration
+# ALLOWED_ORIGINS env var lets you set production URLs at deploy time (comma-separated).
+# Defaults to localhost for local dev.
+_raw_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:3001")
+ALLOWED_ORIGINS = [o.strip() for o in _raw_origins.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001", "http://191.168.36.125:3000", "http://191.168.36.125:3001"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -326,5 +332,6 @@ async def get_supported_languages():
 if __name__ == "__main__":
     import uvicorn
 
-    port = int(os.getenv("AI_SERVICE_PORT", 8000))
+    # Render injects PORT; fall back to AI_SERVICE_PORT for local dev
+    port = int(os.getenv("PORT", os.getenv("AI_SERVICE_PORT", "8000")))
     uvicorn.run(app, host="0.0.0.0", port=port)
