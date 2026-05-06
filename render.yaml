@@ -1,14 +1,15 @@
 services:
   - type: web
-    name: lost-found-ai-backend
+    name: lostfound-ai-backend
     runtime: python
     region: oregon
     plan: free
     rootDir: ai-backend
-    buildCommand: pip install -r requirements.txt
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
     envVars:
       - key: PYTHON_VERSION
-        value: "3.11.0"
+        value: "3.11"
       - key: ALLOWED_ORIGINS
-        sync: false          # Set in Render dashboard to your Next.js production URL
+        sync: false

@@ -1,11 +1,5 @@
 #!/bin/bash
-# Local development runner — activates venv and starts server.
-# On Render the start command (render.yaml) is used instead.
+# Run the AI backend service
 
-PORT="${AI_SERVICE_PORT:-8000}"
-
-if [ -d "venv" ]; then
-  source venv/bin/activate
-fi
-
-exec uvicorn main:app --host 0.0.0.0 --port "$PORT" --reload
+source venv/bin/activate
+python main.py
