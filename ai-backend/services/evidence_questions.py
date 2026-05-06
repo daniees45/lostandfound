@@ -1,10 +1,5 @@
-"""Evidence Question Generator - Generates tailored verification questions"""
-import os
+"""Evidence Question Generator - Generates tailored verification questions (no external API)"""
 from typing import Dict, List, Any
-import openai
-import json
-
-openai.api_key = os.getenv("OPENAI_API_KEY")
 
 # Fallback templates for common item types
 QUESTION_TEMPLATES = {
@@ -48,49 +43,28 @@ QUESTION_TEMPLATES = {
 
 async def generate_evidence_questions(item_type: str, item_details: str) -> Dict[str, Any]:
     """
-    Generate tailored evidence verification questions based on item type.
-    Uses LLM for dynamic questions, falls back to templates.
+    Generate tailored evidence verification questions using item-type templates.
+    No external API required.
     """
-
-    if openai.api_key:
-        try:
-            response = await openai.AsyncOpenAI().chat.completions.create(
-                model=os.getenv("OPENAI_TAG_MODEL", "gpt-4-mini"),
-                temperature=0.7,
-                response_format={"type": "json_object"},
-                messages=[
-                    {
-                        "role": "system",
-                        "content": """Generate 4-5 specific verification questions for a lost-and-found claim.
-Focus on details only the true owner would know.
-Return JSON with:
-- questions: List of 4-5 specific questions
-- difficulty: 'easy', 'medium', or 'hard'
-- focus_areas: List of what the questions target (e.g., 'physical description', 'contents', 'condition')""",
-                    },
-                    {
-                        "role": "user",
-                        "content": f"Item type: {item_type}\nDetails: {item_details}\n\nGenerate verification questions.",
-                    },
-                ],
-            )
-
-            result = json.loads(response.choices[0].message.content)
-            return result
-        except Exception as e:
-            print(f"OpenAI error: {e}")
-            return fallback_questions(item_type)
-
-    return fallback_questions(item_type)
-
-
-def fallback_questions(item_type: str) -> Dict[str, Any]:
-    """Fallback to template-based questions"""
+    # Pick best matching template
     category = item_type if item_type in QUESTION_TEMPLATES else "Other"
-    questions = QUESTION_TEMPLATES[category]
+
+    # Personalise questions from item_details keywords
+    detail_lower = item_details.lower()
+    questions: List[str] = list(QUESTION_TEMPLATES[category])
+
+    # Inject detail-specific questions
+    if "laptop" in detail_lower or "macbook" in detail_lower:
+        questions.insert(0, "What are the last 4 characters of the device serial number?")
+    if "phone" in detail_lower or "iphone" in detail_lower or "android" in detail_lower:
+        questions.insert(0, "What is the IMEI or the phone's lock-screen wallpaper?")
+    if "wallet" in detail_lower:
+        questions.insert(0, "What cards or cash denomination were inside?")
+    if "bag" in detail_lower or "backpack" in detail_lower:
+        questions.insert(0, "What items were in the bag's main compartment?")
 
     return {
-        "questions": questions,
+        "questions": questions[:5],
         "difficulty": "medium",
         "focus_areas": [
             "physical description",
@@ -98,4 +72,13 @@ def fallback_questions(item_type: str) -> Dict[str, Any]:
             "condition and damage",
             "contents or markings",
         ],
+    }
+
+
+def fallback_questions(item_type: str) -> Dict[str, Any]:
+    category = item_type if item_type in QUESTION_TEMPLATES else "Other"
+    return {
+        "questions": QUESTION_TEMPLATES[category],
+        "difficulty": "medium",
+        "focus_areas": ["physical description", "unique identifying features"],
     }

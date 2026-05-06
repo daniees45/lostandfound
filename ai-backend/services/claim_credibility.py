@@ -1,103 +1,111 @@
-"""AI Claim Credibility Assistant - Scores and analyzes claim credibility"""
-import os
+"""AI Claim Credibility Assistant - Scores claims using local heuristics (no external API)"""
+import re
 from typing import Dict, Any, List
-import openai
-import json
 
-openai.api_key = os.getenv("OPENAI_API_KEY")
+
+# Specific item-detail keywords that only a real owner would likely know
+SPECIFIC_MARKERS = [
+    "color", "brand", "model", "serial", "number", "sticker", "scratch",
+    "dent", "crack", "case", "strap", "broken", "mark", "label", "logo",
+    "pattern", "size", "weight", "inscription", "engraved", "name", "tag",
+    "password", "wallpaper", "pin", "lock", "charger", "cable", "pouch",
+]
+
+RED_FLAGS = [
+    "just guessing", "not sure", "think so", "maybe it", "forgot",
+    "don't remember", "cannot recall", "no idea", "any item", "just lost",
+]
+
+WEAK_PATTERNS = [
+    r"\bit is mine\b",
+    r"\bi lost it\b",
+    r"\bplease give\b",
+    r"\bi need it\b",
+    r"\bmy property\b",
+]
 
 
 async def assess_claim_credibility(
     claim_description: str, item_type: str, item_details: str
 ) -> Dict[str, Any]:
     """
-    Assess credibility of a claim using LLM analysis.
-    Returns structured feedback on specificity, consistency, and potential red flags.
+    Assess credibility of a claim using heuristic NLP analysis.
+    No external API required.
     """
+    desc = claim_description.strip()
+    desc_lower = desc.lower()
+    words = desc.split()
+    word_count = len(words)
 
-    if not openai.api_key:
-        return fallback_credibility_score(claim_description, item_type)
+    score = 50
 
-    try:
-        response = await openai.AsyncOpenAI().chat.completions.create(
-            model=os.getenv("OPENAI_TAG_MODEL", "gpt-4-mini"),
-            temperature=0.3,
-            response_format={"type": "json_object"},
-            messages=[
-                {
-                    "role": "system",
-                    "content": """You are a claim credibility assessor for a lost-and-found system.
-Analyze claims for specificity, consistency, and potential fraud indicators.
-Return a JSON object with:
-- credibility_score (0-100): Overall credibility
-- specificity_score (0-100): How specific/detailed is the claim
-- consistency_issues: List of potential inconsistencies or red flags
-- missing_evidence: List of what evidence would strengthen the claim
-- follow_up_questions: List of 2-3 clarifying questions for the claimant
-- recommendation: 'approve_likely', 'review_needed', or 'reject_likely'
-- reasoning: Brief explanation of the assessment""",
-                },
-                {
-                    "role": "user",
-                    "content": f"""Item type: {item_type}
-Item details: {item_details}
+    # Length / detail level
+    if word_count > 60:
+        score += 20
+    elif word_count > 30:
+        score += 12
+    elif word_count > 15:
+        score += 6
+    elif word_count < 5:
+        score -= 25
 
-Claimant's description: {claim_description}
+    # Specific markers
+    markers_found = [m for m in SPECIFIC_MARKERS if m in desc_lower]
+    score += min(25, len(markers_found) * 5)
 
-Assess the credibility of this claim.""",
-                },
-            ],
-        )
+    # Red flags
+    red_flags_found = [f for f in RED_FLAGS if f in desc_lower]
+    score -= len(red_flags_found) * 10
 
-        result = json.loads(response.choices[0].message.content)
-        return result
+    weak_found = sum(1 for p in WEAK_PATTERNS if re.search(p, desc_lower))
+    score -= weak_found * 8
 
-    except Exception as e:
-        print(f"OpenAI API error: {e}")
-        return fallback_credibility_score(claim_description, item_type)
+    # Numbers / model info
+    numbers = re.findall(r"\b\d[\d\-/]+\b", desc)
+    if numbers:
+        score += min(10, len(numbers) * 4)
 
-
-def fallback_credibility_score(claim_description: str, item_type: str) -> Dict[str, Any]:
-    """Fallback credibility scoring using heuristics"""
-    score = 50  # Base score
-
-    # Check specificity
-    claim_length = len(claim_description.split())
-    if claim_length > 50:
-        score += 15
-    elif claim_length > 20:
-        score += 10
-    elif claim_length < 5:
-        score -= 20
-
-    # Check for specific markers
-    specific_markers = ["color", "brand", "model", "serial", "mark", "scratch", "dent"]
-    markers_found = sum(1 for marker in specific_markers if marker in claim_description.lower())
-    score += markers_found * 5
-
-    # Check for red flags
-    red_flags = ["just guessing", "not sure", "think so", "maybe", "forgot"]
-    red_flags_found = sum(
-        1 for flag in red_flags if flag in claim_description.lower()
-    )
-    score -= red_flags_found * 10
+    if item_type.lower() and item_type.lower() in desc_lower:
+        score += 5
 
     score = max(0, min(100, score))
 
+    specificity = min(100, word_count * 2 + len(markers_found) * 8)
+    recommendation = (
+        "approve_likely" if score >= 70
+        else "reject_likely" if score < 40
+        else "review_needed"
+    )
+
+    consistency_issues: List[str] = []
+    if red_flags_found:
+        consistency_issues.append(f"Uncertain language: {', '.join(red_flags_found)}")
+    if word_count < 10:
+        consistency_issues.append("Description too brief to verify ownership")
+    if not markers_found:
+        consistency_issues.append("No specific identifying features mentioned")
+
+    missing_evidence: List[str] = []
+    if "serial" not in desc_lower and "number" not in desc_lower:
+        missing_evidence.append("Serial or model number")
+    if not any(m in desc_lower for m in ["color", "colour"]):
+        missing_evidence.append("Color description")
+    if not any(m in desc_lower for m in ["scratch", "dent", "crack", "mark", "sticker"]):
+        missing_evidence.append("Distinguishing physical marks")
+
     return {
         "credibility_score": score,
-        "specificity_score": min(100, claim_length * 2),
-        "consistency_issues": [] if score > 60 else ["Vague or generic description"],
-        "missing_evidence": [
-            "Specific identifiers (serial number, unique marks)",
-            "Timeline details",
-            "Item condition description",
-        ],
+        "specificity_score": specificity,
+        "consistency_issues": consistency_issues,
+        "missing_evidence": missing_evidence,
         "follow_up_questions": [
-            f"Can you describe any unique markings or identifying features on this {item_type}?",
-            "When did you last see/use this item?",
-            f"What condition was the {item_type} in when you lost it?",
+            f"Can you describe any unique marks or damage on this {item_type}?",
+            "What is the brand and model (if applicable)?",
+            "When and where did you last see the item?",
         ],
-        "recommendation": "review_needed" if 40 < score < 70 else "approve_likely" if score >= 70 else "reject_likely",
-        "reasoning": f"Claim credibility analysis based on specificity and detail level (score: {score}/100)",
+        "recommendation": recommendation,
+        "reasoning": (
+            f"Score {score}/100 — {word_count} words, "
+            f"{len(markers_found)} specific markers, {len(red_flags_found)} red flags."
+        ),
     }

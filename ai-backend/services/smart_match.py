@@ -1,11 +1,7 @@
 """Smart Match Suggestion Service - Links lost & found items using embeddings + metadata"""
-import os
 from typing import List, Dict, Any
-from datetime import datetime, timedelta
+from datetime import datetime
 import numpy as np
-import openai
-
-openai.api_key = os.getenv("OPENAI_API_KEY")
 
 
 def cosine_distance(vec1: List[float], vec2: List[float]) -> float:

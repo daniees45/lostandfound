@@ -1,56 +1,13 @@
-"""Smart Search Rewriter - Converts natural language queries into optimized search filters"""
-import os
+"""Smart Search Rewriter - Converts NL queries to structured filters (no external API)"""
 from typing import Dict, List, Any
-import openai
-import json
-
-openai.api_key = os.getenv("OPENAI_API_KEY")
 
 
 async def rewrite_search_query(user_query: str) -> Dict[str, Any]:
     """
     Convert natural language search query into structured filters.
-    Example: "black samsung lost near cafeteria last week"
-    -> filters: {category: "Electronics", color: "black", location: "cafeteria", days_ago: 7}
-       semantic_query: "black samsung phone"
+    No external API required — uses rule-based extraction.
     """
-
-    if not openai.api_key:
-        return fallback_search_rewrite(user_query)
-
-    try:
-        response = await openai.AsyncOpenAI().chat.completions.create(
-            model=os.getenv("OPENAI_TAG_MODEL", "gpt-4-mini"),
-            temperature=0.3,
-            response_format={"type": "json_object"},
-            messages=[
-                {
-                    "role": "system",
-                    "content": """Parse a search query into structured filters and semantic terms.
-Return JSON with:
-- semantic_query: Cleaned search terms for embedding-based search
-- filters: Object with extracted constraints:
-  - category: One of 'Electronics', 'Bags', 'Documents', 'Clothing', 'Others' or null
-  - color: Detected color or null
-  - location: Location name or null
-  - status: 'lost', 'found', or null
-  - max_days_ago: Days since report or null
-- keywords: List of important search terms
-- search_type: 'specific' (exact match likely), 'semantic' (similarity search), or 'hybrid'""",
-                },
-                {
-                    "role": "user",
-                    "content": f"User search query: {user_query}",
-                },
-            ],
-        )
-
-        result = json.loads(response.choices[0].message.content)
-        return result
-
-    except Exception as e:
-        print(f"OpenAI error: {e}")
-        return fallback_search_rewrite(user_query)
+    return fallback_search_rewrite(user_query)
 
 
 def fallback_search_rewrite(user_query: str) -> Dict[str, Any]:
