@@ -34,6 +34,13 @@ export async function proxy(request: NextRequest) {
 
   const protectedPaths = ["/dashboard", "/report", "/chat", "/pickup"];
   const isProtected = protectedPaths.some((p) => pathname.startsWith(p));
+  const authPathsAllowedWhenSignedIn = [
+    "/auth/callback",
+    "/auth/reset-password",
+  ];
+  const isAllowedAuthPath = authPathsAllowedWhenSignedIn.some((p) =>
+    pathname.startsWith(p)
+  );
 
   if (isProtected && !user) {
     const loginUrl = request.nextUrl.clone();
@@ -43,7 +50,7 @@ export async function proxy(request: NextRequest) {
   }
 
   // Already logged in and hitting auth pages → send to dashboard
-  if (user && pathname.startsWith("/auth")) {
+  if (user && pathname.startsWith("/auth") && !isAllowedAuthPath) {
     const dashboardUrl = request.nextUrl.clone();
     dashboardUrl.pathname = "/dashboard";
     dashboardUrl.searchParams.delete("redirectTo");

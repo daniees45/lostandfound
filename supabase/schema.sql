@@ -8,6 +8,9 @@ create table if not exists profiles (
   created_at timestamptz default now()
 );
 
+alter table profiles
+  alter column role set default 'student';
+
 alter table profiles add column if not exists email text;
 
 create table if not exists items (
@@ -175,6 +178,44 @@ as $$
   select is_admin(uid) or is_pickup_point(uid);
 $$;
 
+create or replace function public.handle_new_user_profile()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  user_role text;
+begin
+  user_role := coalesce(new.raw_user_meta_data->>'role', 'student');
+
+  if user_role not in ('student', 'admin', 'pickup_point') then
+    user_role := 'student';
+  end if;
+
+  insert into public.profiles (id, email, full_name, role)
+  values (
+    new.id,
+    new.email,
+    new.raw_user_meta_data->>'full_name',
+    user_role
+  )
+  on conflict (id) do update
+  set
+    email = excluded.email,
+    full_name = coalesce(excluded.full_name, public.profiles.full_name),
+    role = coalesce(public.profiles.role, excluded.role);
+
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+
+create trigger on_auth_user_created
+after insert on auth.users
+for each row execute procedure public.handle_new_user_profile();
+
 insert into storage.buckets (id, name, public)
 values ('item-images', 'item-images', true)
 on conflict (id) do nothing;
@@ -189,6 +230,8 @@ drop policy if exists "read own profile" on profiles;
 drop policy if exists "read related or staff profiles" on profiles;
 drop policy if exists "insert own profile" on profiles;
 drop policy if exists "update own profile" on profiles;
+drop policy if exists "service role inserts profiles" on profiles;
+drop policy if exists "service role updates profiles" on profiles;
 drop policy if exists "read custody logs" on custody_logs;
 drop policy if exists "insert custody logs" on custody_logs;
 drop policy if exists "read notification logs" on notification_logs;
@@ -285,12 +328,25 @@ for insert
 to authenticated
 with check (auth.uid() = id);
 
+create policy "service role inserts profiles"
+on profiles
+for insert
+to service_role
+with check (true);
+
 create policy "update own profile"
 on profiles
 for update
 to authenticated
 using (auth.uid() = id)
 with check (auth.uid() = id);
+
+create policy "service role updates profiles"
+on profiles
+for update
+to service_role
+using (true)
+with check (true);
 
 create policy "read custody logs"
 on custody_logs

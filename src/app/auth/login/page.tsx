@@ -59,6 +59,15 @@ function LoginForm() {
           ) : null}
         </label>
 
+        <p className="text-right text-sm">
+          <Link
+            href="/auth/forgot-password"
+            className="font-medium text-sky-700 underline dark:text-sky-300"
+          >
+            Forgot password?
+          </Link>
+        </p>
+
         {state?.message ? (
           <p className="rounded-md bg-rose-100 px-3 py-2 text-sm text-rose-800">
             {state.message}
