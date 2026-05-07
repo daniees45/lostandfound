@@ -76,12 +76,6 @@ export async function createItem(
     return { message: "You must be signed in to report an item." };
   }
 
-  const profileRole =
-    (typeof user.user_metadata?.role === "string" &&
-      ["student", "admin", "pickup_point"].includes(user.user_metadata.role)
-      ? user.user_metadata.role
-      : "student") as "student" | "admin" | "pickup_point";
-
   const { error: profileError } = await supabase.from("profiles").upsert({
     id: user.id,
     full_name:
@@ -89,7 +83,6 @@ export async function createItem(
         user.user_metadata.full_name) ||
       null,
     email: user.email ?? null,
-    role: profileRole,
   });
 
   if (profileError) {

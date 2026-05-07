@@ -80,13 +80,6 @@ export async function login(
   }
 
   // Best-effort profile upsert — do not block sign-in if it fails
-  const profileRole = (
-    typeof data.user.user_metadata?.role === "string" &&
-    ["student", "admin", "pickup_point"].includes(data.user.user_metadata.role)
-      ? data.user.user_metadata.role
-      : "student"
-  ) as "student" | "admin" | "pickup_point";
-
   await supabase.from("profiles").upsert({
     id: data.user.id,
     full_name:
@@ -94,7 +87,6 @@ export async function login(
         data.user.user_metadata.full_name) ||
       null,
     email: data.user.email ?? null,
-    role: profileRole,
   });
 
   const redirectTo = (formData.get("redirectTo") as string) || "/dashboard";
