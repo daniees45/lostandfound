@@ -27,18 +27,16 @@ export async function AppNav() {
       user = data.user;
 
       if (user) {
-        const { count } = await supabase
-          .from("notification_logs")
-          .select("id", { count: "exact", head: true })
-          .eq("user_id", user.id)
-          .eq("is_read", false);
-        unreadNotifications = count ?? 0;
+        const [{ count }, { data: profile }] = await Promise.all([
+          supabase
+            .from("notification_logs")
+            .select("id", { count: "exact", head: true })
+            .eq("user_id", user.id)
+            .eq("is_read", false),
+          supabase.from("profiles").select("role").eq("id", user.id).single(),
+        ]);
 
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", user.id)
-          .single();
+        unreadNotifications = count ?? 0;
         userRole = (profile?.role as string) ?? null;
       }
     } catch {

@@ -42,27 +42,25 @@ export default async function AdminPage() {
 
   if (profile?.role !== "admin") redirect("/dashboard");
 
-  // ── fetch all items ───────────────────────────────────────────────────────
-  const { data: itemsData } = await supabase
-    .from("items")
-    .select("id, user_id, title, description, category, ai_tags, location, status, created_at, image_url")
-    .order("created_at", { ascending: false })
-    .limit(200);
+  const [{ data: itemsData }, { data: usersData }, { data: claimsRaw }] = await Promise.all([
+    supabase
+      .from("items")
+      .select("id, user_id, title, description, category, ai_tags, location, status, created_at, image_url")
+      .order("created_at", { ascending: false })
+      .limit(200),
+    supabase
+      .from("profiles")
+      .select("id, full_name, email, role, created_at")
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("claims")
+      .select("id, item_id, claimant_id, proof_description, status, created_at")
+      .order("created_at", { ascending: false })
+      .limit(200),
+  ]);
+
   const items = (itemsData ?? []) as Item[];
-
-  // ── fetch all profiles ────────────────────────────────────────────────────
-  const { data: usersData } = await supabase
-    .from("profiles")
-    .select("id, full_name, email, role, created_at")
-    .order("created_at", { ascending: false });
   const users = (usersData ?? []) as Profile[];
-
-  // ── fetch all claims with item titles + claimant emails ───────────────────
-  const { data: claimsRaw } = await supabase
-    .from("claims")
-    .select("id, item_id, claimant_id, proof_description, status, created_at")
-    .order("created_at", { ascending: false })
-    .limit(200);
 
   const itemTitleMap = new Map(items.map((i) => [i.id, i.title]));
   const userEmailMap = new Map(users.map((u) => [u.id, u.email ?? undefined]));

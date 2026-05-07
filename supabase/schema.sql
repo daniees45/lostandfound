@@ -34,6 +34,12 @@ create index if not exists items_embedding_idx
 on items using ivfflat (embedding vector_cosine_ops)
 with (lists = 100);
 
+create index if not exists items_user_created_idx
+on items(user_id, created_at desc);
+
+create index if not exists items_status_created_idx
+on items(status, created_at desc);
+
 create or replace function match_items(
   query_embedding vector(384),
   match_count int default 20
@@ -77,6 +83,12 @@ create table if not exists claims (
   status text not null default 'pending' check (status in ('pending', 'approved', 'rejected')),
   created_at timestamptz default now()
 );
+
+create index if not exists claims_item_status_created_idx
+on claims(item_id, status, created_at desc);
+
+create index if not exists claims_claimant_created_idx
+on claims(claimant_id, created_at desc);
 
 create table if not exists custody_logs (
   id uuid primary key default gen_random_uuid(),
@@ -135,6 +147,9 @@ create table if not exists messages (
   body text not null,
   created_at timestamptz default now()
 );
+
+create index if not exists messages_session_created_idx
+on messages(session_id, created_at asc);
 
 alter table profiles enable row level security;
 alter table items enable row level security;
