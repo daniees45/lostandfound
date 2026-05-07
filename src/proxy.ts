@@ -2,6 +2,13 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // Auth form submissions (POST/other non-GET) should not pay an extra auth lookup here.
+  if (pathname.startsWith("/auth") && request.method !== "GET") {
+    return NextResponse.next({ request });
+  }
+
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -29,8 +36,6 @@ export async function proxy(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
-  const { pathname } = request.nextUrl;
 
   const protectedPaths = ["/dashboard", "/report", "/chat", "/pickup"];
   const isProtected = protectedPaths.some((p) => pathname.startsWith(p));
