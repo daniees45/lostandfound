@@ -1,7 +1,10 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { initializeDatabase } from "@/lib/db";
+import { profiles, items as itemsTable } from "@/lib/schema";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { createUserProfile } from "@/lib/auth-turso";
 import { suggestTagsAndCategory } from "@/lib/ai-tagging";
 import { generateEmbedding, toPgVectorLiteral } from "@/lib/embeddings";
 import {
@@ -10,6 +13,8 @@ import {
   extractTagsFromImageUrl,
 } from "@/lib/ai-service-client";
 import { z } from "zod";
+import { eq, inArray } from "drizzle-orm";
+import { randomUUID } from "crypto";
 
 const ITEM_IMAGE_BUCKET = "item-images";
 const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
@@ -76,16 +81,11 @@ export async function createItem(
     return { message: "You must be signed in to report an item." };
   }
 
-  const { error: profileError } = await supabase.from("profiles").upsert({
-    id: user.id,
-    full_name:
-      (typeof user.user_metadata?.full_name === "string" &&
-        user.user_metadata.full_name) ||
-      null,
-    email: user.email ?? null,
-  });
-
-  if (profileError) {
+  // Create/update user profile in Turso
+  try {
+    await createUserProfile(user.id, user.email ?? null, user.user_metadata?.full_name ?? null);
+  } catch (err) {
+    console.error("Error creating user profile:", err);
     return {
       message:
         "Could not initialize your profile record. Please sign out and sign in again.",
@@ -165,22 +165,27 @@ export async function createItem(
 
   const mergedTags = Array.from(new Set([...ai.tags, ...visionTags])).slice(0, 10);
 
-  const { error } = await supabase.from("items").insert({
-    user_id: user.id,
-    title: normalizedTitle,
-    category: visionCategory ?? ai.category,
-    description: finalDescription,
-    ai_tags: mergedTags,
-    embedding: embedding ? toPgVectorLiteral(embedding) : null,
-    location: parsed.data.location,
-    status: parsed.data.status,
-    image_url: imageUrl,
-    pickup_code: parsed.data.status === "found" ? generatePickupCode() : null,
-    created_at: parsed.data.date,
-  });
+  const db = initializeDatabase();
 
-  if (error) {
-    return { message: error.message };
+  try {
+    const itemId = `item_${randomUUID()}`;
+    await db.insert(itemsTable).values({
+      id: itemId,
+      user_id: user.id,
+      title: normalizedTitle,
+      category: visionCategory ?? ai.category,
+      description: finalDescription,
+      ai_tags: mergedTags,
+      embedding: embedding,
+      location: parsed.data.location,
+      status: parsed.data.status,
+      image_url: imageUrl,
+      pickup_code: parsed.data.status === "found" ? generatePickupCode() : null,
+      created_at: new Date(parsed.data.date),
+    });
+  } catch (err) {
+    console.error("Error creating item:", err);
+    return { message: "Failed to create item. Please try again." };
   }
 
   const reportMessage = encodeURIComponent(
@@ -204,7 +209,7 @@ export async function checkForSimilarItems(input: {
 }): Promise<Array<{ id: string; title: string; category: string; location: string; status: string }>> {
   if (!input.title || input.title.trim().length < 3) return [];
 
-  const supabase = await createSupabaseServerClient();
+  const db = initializeDatabase();
 
   // Look for opposite-type items that might be a match
   const searchStatuses =
@@ -218,20 +223,30 @@ export async function checkForSimilarItems(input: {
 
   if (keywords.length === 0) return [];
 
-  const orFilter = keywords.map((k) => `title.ilike.%${k}%`).join(",");
+  try {
+    // Use LIKE for basic text matching in SQLite
+    // Get all items with matching status, then filter by keyword in application code
+    const results = await db
+      .select({
+        id: itemsTable.id,
+        title: itemsTable.title,
+        category: itemsTable.category,
+        location: itemsTable.location,
+        status: itemsTable.status,
+      })
+      .from(itemsTable)
+      .where(inArray(itemsTable.status, searchStatuses))
+      .limit(20);
 
-  const { data } = await supabase
-    .from("items")
-    .select("id, title, category, location, status")
-    .in("status", searchStatuses)
-    .or(orFilter)
-    .limit(4);
+    // Filter by keywords in application code
+    const filtered = results.filter((item) => {
+      const titleLower = item.title.toLowerCase();
+      return keywords.some((k) => titleLower.includes(k));
+    });
 
-  return (data ?? []) as Array<{
-    id: string;
-    title: string;
-    category: string;
-    location: string;
-    status: string;
-  }>;
+    return filtered.slice(0, 4);
+  } catch (err) {
+    console.error("Error checking for similar items:", err);
+    return [];
+  }
 }

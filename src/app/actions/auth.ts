@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { createUserProfile } from "@/lib/auth-turso";
 import { z } from "zod";
 import { headers } from "next/headers";
 
@@ -115,6 +116,14 @@ export async function signup(
     return {
       message: "Could not create account. Please try again.",
     };
+  }
+
+  // Create user profile in Turso
+  try {
+    await createUserProfile(data.user.id, email, fullName);
+  } catch (err) {
+    console.error("Error creating user profile in Turso:", err);
+    // Don't fail signup if profile creation fails, user can be created later
   }
 
   redirect("/auth/login?message=Check+your+email+to+confirm+your+account+(Check+spam+folder+if+you+don't+see+it).");

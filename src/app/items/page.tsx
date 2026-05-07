@@ -1,10 +1,13 @@
 import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { initializeDatabase } from "@/lib/db";
+import { items as itemsTable, claims as claimsTable } from "@/lib/schema";
 import { generateEmbedding, toPgVectorLiteral } from "@/lib/embeddings";
 import { mockItems } from "@/lib/mock-data";
 import { Item } from "@/lib/types";
 import Link from "next/link";
 import { submitClaimAction } from "@/app/actions/claims";
 import { FlashBanner } from "@/components/flash-banner";
+import { eq, inArray, desc, like, or } from "drizzle-orm";
 
 function formatDate(value?: string) {
   if (!value) return "Unknown";
@@ -70,11 +73,11 @@ export default async function ItemsPage({
     return merged;
   }
 
-  // Try live DB; fall back to mock data when Supabase is not yet configured
+  // Try live DB; fall back to mock data when Turso is not configured
   let items: Item[] = [];
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const tursoUrl = process.env.TURSO_DATABASE_URL;
 
-  if (supabaseUrl) {
+  if (tursoUrl) {
     const supabase = await createSupabaseServerClient();
     const {
       data: { user },
@@ -82,61 +85,118 @@ export default async function ItemsPage({
 
     currentUserId = user?.id ?? null;
 
+    const db = initializeDatabase();
+
     if (query) {
-      const queryEmbedding = await generateEmbedding(query);
+      // For now, use text-based search instead of semantic search
+      // TODO: Implement full-text search or fuzzy matching for better results
+      let searchItems: Item[] = [];
 
-      if (queryEmbedding) {
-        const { data: semanticData } = await supabase.rpc("match_items", {
-          query_embedding: toPgVectorLiteral(queryEmbedding),
-          match_count: 50,
-        });
+      // Search in all fields
+      const allSearchItems = await db
+        .select({
+          id: itemsTable.id,
+          user_id: itemsTable.user_id,
+          title: itemsTable.title,
+          description: itemsTable.description,
+          category: itemsTable.category,
+          ai_tags: itemsTable.ai_tags,
+          location: itemsTable.location,
+          status: itemsTable.status,
+          created_at: itemsTable.created_at,
+          image_url: itemsTable.image_url,
+        })
+        .from(itemsTable)
+        .where(inArray(itemsTable.status, ["found", "held_at_pickup", "claimed"]))
+        .orderBy(desc(itemsTable.created_at));
 
-        items = ((semanticData as Item[] | null) ?? []).filter((item) =>
-          ["found", "held_at_pickup", "claimed"].includes(item.status)
-        );
-      }
+      // Filter by query in application code (simple string matching)
+      searchItems = (allSearchItems as Item[]).filter((item) => {
+        const searchableText = [
+          item.title,
+          item.description,
+          item.category,
+          item.location,
+          Array.isArray(item.ai_tags) ? item.ai_tags.join(" ") : "",
+        ]
+          .join(" ")
+          .toLowerCase();
+        return searchableText.includes(query);
+      });
 
-      if (items.length === 0) {
-        const { data: fallbackData } = await supabase
-          .from("items")
-          .select("id, user_id, title, description, category, ai_tags, location, status, created_at, image_url")
-          .in("status", ["found", "held_at_pickup", "claimed"])
-          .or(
-            `title.ilike.%${query}%,description.ilike.%${query}%,category.ilike.%${query}%,location.ilike.%${query}%`
-          )
-          .order("created_at", { ascending: false });
-
-        items = (fallbackData as Item[]) ?? [];
-      }
+      items = searchItems;
 
       if (currentUserId) {
-        const { data: ownData } = await supabase
-          .from("items")
-          .select("id, user_id, title, description, category, ai_tags, location, status, created_at, image_url")
-          .eq("user_id", currentUserId)
-          .or(
-            `title.ilike.%${query}%,description.ilike.%${query}%,category.ilike.%${query}%,location.ilike.%${query}%`
-          )
-          .order("created_at", { ascending: false })
+        const ownData = await db
+          .select({
+            id: itemsTable.id,
+            user_id: itemsTable.user_id,
+            title: itemsTable.title,
+            description: itemsTable.description,
+            category: itemsTable.category,
+            ai_tags: itemsTable.ai_tags,
+            location: itemsTable.location,
+            status: itemsTable.status,
+            created_at: itemsTable.created_at,
+            image_url: itemsTable.image_url,
+          })
+          .from(itemsTable)
+          .where(eq(itemsTable.user_id, currentUserId))
+          .orderBy(desc(itemsTable.created_at))
           .limit(50);
 
-        items = mergeUniqueById((ownData as Item[]) ?? [], items);
+        const filteredOwn = (ownData as Item[]).filter((item) => {
+          const searchableText = [
+            item.title,
+            item.description,
+            item.category,
+            item.location,
+            Array.isArray(item.ai_tags) ? item.ai_tags.join(" ") : "",
+          ]
+            .join(" ")
+            .toLowerCase();
+          return searchableText.includes(query);
+        });
+
+        items = mergeUniqueById(filteredOwn, items);
       }
     } else {
-      const { data: publicData } = await supabase
-        .from("items")
-        .select("id, user_id, title, description, category, ai_tags, location, status, created_at, image_url")
-        .in("status", ["found", "held_at_pickup", "claimed"])
-        .order("created_at", { ascending: false });
+      const publicData = await db
+        .select({
+          id: itemsTable.id,
+          user_id: itemsTable.user_id,
+          title: itemsTable.title,
+          description: itemsTable.description,
+          category: itemsTable.category,
+          ai_tags: itemsTable.ai_tags,
+          location: itemsTable.location,
+          status: itemsTable.status,
+          created_at: itemsTable.created_at,
+          image_url: itemsTable.image_url,
+        })
+        .from(itemsTable)
+        .where(inArray(itemsTable.status, ["found", "held_at_pickup", "claimed"]))
+        .orderBy(desc(itemsTable.created_at));
 
       items = (publicData as Item[]) ?? [];
 
       if (currentUserId) {
-        const { data: ownData } = await supabase
-          .from("items")
-          .select("id, user_id, title, description, category, ai_tags, location, status, created_at, image_url")
-          .eq("user_id", currentUserId)
-          .order("created_at", { ascending: false })
+        const ownData = await db
+          .select({
+            id: itemsTable.id,
+            user_id: itemsTable.user_id,
+            title: itemsTable.title,
+            description: itemsTable.description,
+            category: itemsTable.category,
+            ai_tags: itemsTable.ai_tags,
+            location: itemsTable.location,
+            status: itemsTable.status,
+            created_at: itemsTable.created_at,
+            image_url: itemsTable.image_url,
+          })
+          .from(itemsTable)
+          .where(eq(itemsTable.user_id, currentUserId))
+          .orderBy(desc(itemsTable.created_at))
           .limit(50);
 
         items = mergeUniqueById((ownData as Item[]) ?? [], items);
@@ -144,13 +204,17 @@ export default async function ItemsPage({
     }
 
     if (currentUserId && items.length > 0) {
-      const { data: myClaims } = await supabase
-        .from("claims")
-        .select("item_id, status")
-        .eq("claimant_id", currentUserId)
-        .in(
-          "item_id",
-          items.map((item) => item.id)
+      const myClaims = await db
+        .select({
+          item_id: claimsTable.item_id,
+          status: claimsTable.status,
+        })
+        .from(claimsTable)
+        .where(
+          inArray(
+            claimsTable.item_id,
+            items.map((item) => item.id)
+          )
         );
 
       for (const claim of myClaims ?? []) {

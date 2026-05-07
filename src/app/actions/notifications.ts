@@ -1,7 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { initializeDatabase } from "@/lib/db";
+import { notifications } from "@/lib/schema";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { eq, and } from "drizzle-orm";
 
 export async function markNotificationRead(formData: FormData) {
   const notificationId = String(formData.get("notificationId") ?? "");
@@ -14,12 +17,22 @@ export async function markNotificationRead(formData: FormData) {
 
   if (!user) return;
 
-  await supabase
-    .from("notification_logs")
-    .update({ is_read: true, read_at: new Date().toISOString() })
-    .eq("id", notificationId)
-    .eq("user_id", user.id)
-    .eq("is_read", false);
+  const db = initializeDatabase();
+
+  try {
+    await db
+      .update(notifications)
+      .set({ read: true })
+      .where(
+        and(
+          eq(notifications.id, notificationId),
+          eq(notifications.user_id, user.id),
+          eq(notifications.read, false)
+        )
+      );
+  } catch (err) {
+    console.error("Error marking notification as read:", err);
+  }
 
   revalidatePath("/notifications");
 }
@@ -32,11 +45,16 @@ export async function markAllNotificationsRead() {
 
   if (!user) return;
 
-  await supabase
-    .from("notification_logs")
-    .update({ is_read: true, read_at: new Date().toISOString() })
-    .eq("user_id", user.id)
-    .eq("is_read", false);
+  const db = initializeDatabase();
+
+  try {
+    await db
+      .update(notifications)
+      .set({ read: true })
+      .where(and(eq(notifications.user_id, user.id), eq(notifications.read, false)));
+  } catch (err) {
+    console.error("Error marking all notifications as read:", err);
+  }
 
   revalidatePath("/notifications");
 }

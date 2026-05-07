@@ -1,10 +1,13 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { initializeDatabase } from "@/lib/db";
+import { profiles, items as itemsTable, claims as claimsTable } from "@/lib/schema";
 import { Item } from "@/lib/types";
 import { signOut } from "@/app/actions/auth";
 import { reviewClaimAction } from "@/app/actions/claims";
 import { FlashBanner } from "@/components/flash-banner";
+import { eq, inArray, desc, limit } from "drizzle-orm";
 
 type PendingClaim = {
   id: string;
@@ -54,49 +57,77 @@ export default async function DashboardPage({
     redirect("/auth/login");
   }
 
+  const db = initializeDatabase();
+
   // Fetch profile to get role
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role, full_name")
-    .eq("id", user.id)
-    .single();
+  const profile = await db
+    .select({ role: profiles.role, full_name: profiles.full_name })
+    .from(profiles)
+    .where(eq(profiles.id, user.id))
+    .get();
 
   const role = (profile?.role as string) ?? "student";
   const fullName = profile?.full_name ?? user.email;
 
   // Fetch items for this user
-  const { data: myItems } = await supabase
-    .from("items")
-    .select("id, title, description, category, location, status, created_at")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false });
+  const myItems = await db
+    .select({
+      id: itemsTable.id,
+      title: itemsTable.title,
+      description: itemsTable.description,
+      category: itemsTable.category,
+      location: itemsTable.location,
+      status: itemsTable.status,
+      created_at: itemsTable.created_at,
+    })
+    .from(itemsTable)
+    .where(eq(itemsTable.user_id, user.id))
+    .orderBy(desc(itemsTable.created_at));
 
-  const items = (myItems ?? []) as Item[];
+  const items = myItems as Item[];
 
   // Admin/pickup: fetch all items
   let allItems: Item[] = [];
   if (role === "admin" || role === "pickup_point") {
-    const { data } = await supabase
-      .from("items")
-      .select("id, title, description, category, location, status, created_at")
-      .order("created_at", { ascending: false })
+    const allItemsData = await db
+      .select({
+        id: itemsTable.id,
+        title: itemsTable.title,
+        description: itemsTable.description,
+        category: itemsTable.category,
+        location: itemsTable.location,
+        status: itemsTable.status,
+        created_at: itemsTable.created_at,
+      })
+      .from(itemsTable)
+      .orderBy(desc(itemsTable.created_at))
       .limit(50);
-    allItems = (data ?? []) as Item[];
+    allItems = allItemsData as Item[];
   }
 
   const itemTitleById = new Map(items.map((item) => [item.id, item.title]));
   let pendingClaims: PendingClaim[] = [];
   if (items.length > 0) {
-    const { data } = await supabase
-      .from("claims")
-      .select("id, item_id, claimant_id, proof_description, created_at, status")
-      .in(
-        "item_id",
-        items.map((item) => item.id)
+    const claims = await db
+      .select({
+        id: claimsTable.id,
+        item_id: claimsTable.item_id,
+        claimant_id: claimsTable.claimant_id,
+        proof_description: claimsTable.proof_description,
+        created_at: claimsTable.created_at,
+        status: claimsTable.status,
+      })
+      .from(claimsTable)
+      .where(
+        inArray(
+          claimsTable.item_id,
+          items.map((item) => item.id)
+        )
       )
-      .eq("status", "pending")
-      .order("created_at", { ascending: false })
+      .orderBy(desc(claimsTable.created_at))
       .limit(30);
+
+    pendingClaims = (claims.filter((claim) => claim.status === "pending") ?? []) as PendingClaim[];
 
     pendingClaims = (data ?? []) as PendingClaim[];
   }

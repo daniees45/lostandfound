@@ -2,8 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { initializeDatabase } from "@/lib/db";
+import { items as itemsTable, profiles, claims as claimsTable, custody_logs } from "@/lib/schema";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { notifyStatusChange } from "@/lib/notifications";
+import { eq } from "drizzle-orm";
+import { randomUUID } from "crypto";
 
 const PickupSchema = z.object({
   handoverCode: z
@@ -13,8 +17,8 @@ const PickupSchema = z.object({
 
 const ReleasePickupSchema = z
   .object({
-    itemId: z.string().uuid(),
-    claimantId: z.string().uuid(),
+    itemId: z.string(),
+    claimantId: z.string(),
     verificationMethod: z.enum(["id_card", "manual_override"]),
     notes: z.string().max(500).optional(),
   })
@@ -57,26 +61,32 @@ export async function verifyPickupCode(
     return { message: "You must be signed in to verify a code." };
   }
 
-  const { data: officerProfile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
+  const db = initializeDatabase();
+
+  // Get officer profile role
+  const officerProfile = await db
+    .select({ role: profiles.role })
+    .from(profiles)
+    .where(eq(profiles.id, user.id))
+    .get();
 
   const officerRole = officerProfile?.role;
   if (officerRole !== "pickup_point" && officerRole !== "admin") {
     return { message: "Only pickup officers or admins can verify handover codes." };
   }
 
-  const { data: item, error: itemError } = await supabase
-    .from("items")
-    .select("id, user_id, title, status, pickup_code")
-    .eq("pickup_code", parsed.data.handoverCode)
-    .maybeSingle();
-
-  if (itemError) {
-    return { message: itemError.message };
-  }
+  // Find item by pickup code
+  const item = await db
+    .select({
+      id: itemsTable.id,
+      user_id: itemsTable.user_id,
+      title: itemsTable.title,
+      status: itemsTable.status,
+      pickup_code: itemsTable.pickup_code,
+    })
+    .from(itemsTable)
+    .where(eq(itemsTable.pickup_code, parsed.data.handoverCode))
+    .get();
 
   if (!item) {
     return { message: "Invalid handover code." };
@@ -86,36 +96,42 @@ export async function verifyPickupCode(
     return { message: `Item is already in status: ${item.status}.` };
   }
 
-  const { error: updateError } = await supabase
-    .from("items")
-    .update({ status: "held_at_pickup" })
-    .eq("id", item.id);
+  try {
+    // Update item status to held_at_pickup
+    await db
+      .update(itemsTable)
+      .set({ status: "held_at_pickup" })
+      .where(eq(itemsTable.id, item.id));
 
-  if (updateError) {
-    return { message: updateError.message };
+    // Create custody log
+    const logId = `log_${randomUUID()}`;
+    await db.insert(custody_logs).values({
+      id: logId,
+      item_id: item.id,
+      from_user_id: item.user_id,
+      to_user_id: user.id,
+      verification_method: "handover_code",
+      notes: `Handover verified using code ${parsed.data.handoverCode}`,
+    });
+
+    // Get owner profile for notification
+    const ownerProfile = await db
+      .select({ email: profiles.email })
+      .from(profiles)
+      .where(eq(profiles.id, item.user_id))
+      .get();
+
+    await notifyStatusChange({
+      supabase,
+      userId: item.user_id,
+      email: ownerProfile?.email,
+      itemTitle: item.title,
+      newStatus: "held_at_pickup",
+    });
+  } catch (err) {
+    console.error("Error verifying pickup code:", err);
+    return { message: "Failed to verify code. Please try again." };
   }
-
-  await supabase.from("custody_logs").insert({
-    item_id: item.id,
-    from_user_id: item.user_id,
-    to_user_id: user.id,
-    verification_method: "handover_code",
-    notes: `Handover verified using code ${parsed.data.handoverCode}`,
-  });
-
-  const { data: ownerProfile } = await supabase
-    .from("profiles")
-    .select("email")
-    .eq("id", item.user_id)
-    .maybeSingle();
-
-  await notifyStatusChange({
-    supabase,
-    userId: item.user_id,
-    email: ownerProfile?.email,
-    itemTitle: item.title,
-    newStatus: "held_at_pickup",
-  });
 
   revalidatePath("/pickup");
   revalidatePath("/dashboard");
@@ -151,26 +167,31 @@ export async function releaseHeldItem(
     return { message: "You must be signed in to release an item." };
   }
 
-  const { data: officerProfile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
+  const db = initializeDatabase();
+
+  // Get officer profile role
+  const officerProfile = await db
+    .select({ role: profiles.role })
+    .from(profiles)
+    .where(eq(profiles.id, user.id))
+    .get();
 
   const officerRole = officerProfile?.role;
   if (officerRole !== "pickup_point" && officerRole !== "admin") {
     return { message: "Only pickup officers or admins can release held items." };
   }
 
-  const { data: item, error: itemError } = await supabase
-    .from("items")
-    .select("id, user_id, title, status")
-    .eq("id", parsed.data.itemId)
-    .maybeSingle();
-
-  if (itemError) {
-    return { message: itemError.message };
-  }
+  // Get item
+  const item = await db
+    .select({
+      id: itemsTable.id,
+      user_id: itemsTable.user_id,
+      title: itemsTable.title,
+      status: itemsTable.status,
+    })
+    .from(itemsTable)
+    .where(eq(itemsTable.id, parsed.data.itemId))
+    .get();
 
   if (!item) {
     return { message: "Held item not found." };
@@ -180,69 +201,82 @@ export async function releaseHeldItem(
     return { message: `Only held items can be released. Current status: ${item.status}.` };
   }
 
-  const { data: approvedClaim, error: claimError } = await supabase
-    .from("claims")
-    .select("id, claimant_id")
-    .eq("item_id", item.id)
-    .eq("claimant_id", parsed.data.claimantId)
-    .eq("status", "approved")
-    .maybeSingle();
-
-  if (claimError) {
-    return { message: claimError.message };
-  }
+  // Check approved claim
+  const approvedClaim = await db
+    .select({
+      id: claimsTable.id,
+      claimant_id: claimsTable.claimant_id,
+    })
+    .from(claimsTable)
+    .where(
+      eq(claimsTable.item_id, item.id) &&
+      eq(claimsTable.claimant_id, parsed.data.claimantId) &&
+      eq(claimsTable.status, "approved")
+    )
+    .get();
 
   if (!approvedClaim) {
     return { message: "This claimant does not have an approved claim for the selected item." };
   }
 
-  const { error: updateError } = await supabase
-    .from("items")
-    .update({ status: "returned" })
-    .eq("id", item.id);
+  try {
+    // Update item status to returned
+    await db
+      .update(itemsTable)
+      .set({ status: "returned" })
+      .where(eq(itemsTable.id, item.id));
 
-  if (updateError) {
-    return { message: updateError.message };
+    const releaseNote = parsed.data.notes?.trim()
+      ? `Final release completed. ${parsed.data.notes.trim()}`
+      : "Final release completed after identity verification.";
+
+    // Create custody log for release
+    const logId = `log_${randomUUID()}`;
+    await db.insert(custody_logs).values({
+      id: logId,
+      item_id: item.id,
+      from_user_id: user.id,
+      to_user_id: approvedClaim.claimant_id,
+      verification_method: parsed.data.verificationMethod,
+      notes: releaseNote,
+    });
+
+    // Get related profiles for notification
+    const relatedProfiles = await db
+      .select({
+        id: profiles.id,
+        email: profiles.email,
+      })
+      .from(profiles)
+      .where(
+        profiles.id === item.user_id || profiles.id === approvedClaim.claimant_id
+      );
+
+    const profileMap = new Map(
+      relatedProfiles.map((profile) => [profile.id, profile.email])
+    );
+
+    // Notify claimant
+    await notifyStatusChange({
+      supabase,
+      userId: approvedClaim.claimant_id,
+      email: profileMap.get(approvedClaim.claimant_id) ?? null,
+      itemTitle: item.title,
+      newStatus: "returned",
+    });
+
+    // Notify owner
+    await notifyStatusChange({
+      supabase,
+      userId: item.user_id,
+      email: profileMap.get(item.user_id) ?? null,
+      itemTitle: item.title,
+      newStatus: "returned",
+    });
+  } catch (err) {
+    console.error("Error releasing held item:", err);
+    return { message: "Failed to release item. Please try again." };
   }
-
-  const releaseNote = parsed.data.notes?.trim()
-    ? `Final release completed. ${parsed.data.notes.trim()}`
-    : "Final release completed after identity verification.";
-
-  const { error: custodyError } = await supabase.from("custody_logs").insert({
-    item_id: item.id,
-    from_user_id: user.id,
-    to_user_id: approvedClaim.claimant_id,
-    verification_method: parsed.data.verificationMethod,
-    notes: releaseNote,
-  });
-
-  if (custodyError) {
-    return { message: custodyError.message };
-  }
-
-  const { data: relatedProfiles } = await supabase
-    .from("profiles")
-    .select("id, email")
-    .in("id", [item.user_id, approvedClaim.claimant_id]);
-
-  const profileMap = new Map((relatedProfiles ?? []).map((profile) => [profile.id as string, profile.email as string | null]));
-
-  await notifyStatusChange({
-    supabase,
-    userId: approvedClaim.claimant_id,
-    email: profileMap.get(approvedClaim.claimant_id) ?? null,
-    itemTitle: item.title,
-    newStatus: "returned",
-  });
-
-  await notifyStatusChange({
-    supabase,
-    userId: item.user_id,
-    email: profileMap.get(item.user_id) ?? null,
-    itemTitle: item.title,
-    newStatus: "returned",
-  });
 
   revalidatePath("/pickup");
   revalidatePath("/dashboard");
