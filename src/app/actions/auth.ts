@@ -135,7 +135,7 @@ export async function signup(
     };
   }
 
-  redirect("/auth/login?message=Check+your+email+to+confirm+your+account");
+  redirect("/auth/login?message=Check+your+email+to+confirm+your+account+(Check+spam+folder+if+you+don't+see+it).");
 }
 
 export async function requestPasswordReset(
