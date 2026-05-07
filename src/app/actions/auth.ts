@@ -79,15 +79,23 @@ export async function login(
     return { message: "Sign-in failed. Please confirm your email or check your credentials." };
   }
 
-  // Best-effort profile upsert — do not block sign-in if it fails
-  await supabase.from("profiles").upsert({
-    id: data.user.id,
-    full_name:
-      (typeof data.user.user_metadata?.full_name === "string" &&
-        data.user.user_metadata.full_name) ||
-      null,
-    email: data.user.email ?? null,
-  });
+  // Read role/profile from DB (source of truth). Create profile only when missing.
+  const { data: existingProfile } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("id", data.user.id)
+    .maybeSingle();
+
+  if (!existingProfile) {
+    await supabase.from("profiles").upsert({
+      id: data.user.id,
+      full_name:
+        (typeof data.user.user_metadata?.full_name === "string" &&
+          data.user.user_metadata.full_name) ||
+        null,
+      email: data.user.email ?? null,
+    });
+  }
 
   const redirectTo = (formData.get("redirectTo") as string) || "/dashboard";
   redirect(redirectTo);
