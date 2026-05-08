@@ -20,6 +20,9 @@ import {
   buildWelcomeEmail,
   buildPasswordResetEmail,
 } from "@/lib/email";
+import { cloudinaryReady, uploadImageToCloudinary } from "@/lib/cloudinary";
+
+const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 
 const LoginSchema = z.object({
   email: z.email(),
@@ -102,6 +105,32 @@ export async function signup(
 
   const { fullName, email, password } = parsed.data;
   const normalizedEmail = email.toLowerCase();
+  const avatarFile = formData.get("avatar");
+
+  let avatarUrl: string | null = null;
+  if (avatarFile instanceof File && avatarFile.size > 0) {
+    if (!avatarFile.type.startsWith("image/")) {
+      return { message: "Profile image must be an image file." };
+    }
+
+    if (avatarFile.size > MAX_IMAGE_SIZE_BYTES) {
+      return { message: "Profile image must be 5MB or smaller." };
+    }
+
+    if (!cloudinaryReady()) {
+      return {
+        message:
+          "Profile image upload requires Cloudinary setup (CLOUDINARY_CLOUD_NAME + CLOUDINARY_UPLOAD_PRESET).",
+      };
+    }
+
+    try {
+      avatarUrl = await uploadImageToCloudinary(avatarFile, "lost-found-system/avatars");
+    } catch (error) {
+      console.error("Signup avatar upload failed:", error);
+      return { message: "Could not upload profile image. Please try another file." };
+    }
+  }
 
   try {
     await ensureAuthTables();
@@ -123,6 +152,7 @@ export async function signup(
       role: "student",
       email: normalizedEmail,
       full_name: fullName,
+      avatar_url: avatarUrl,
     });
 
     await upsertUserCredentials(userId, hashPassword(password));

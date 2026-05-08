@@ -23,6 +23,7 @@ type ChatRoomProps = {
   itemTitle?: string;
   initialReferencedItemId?: string | null;
   initialReferencedItemTitle?: string;
+  availableItems: Array<{ id: string; label: string }>;
 };
 
 export function ChatRoom({
@@ -31,6 +32,7 @@ export function ChatRoom({
   itemTitle,
   initialReferencedItemId,
   initialReferencedItemTitle,
+  availableItems,
 }: ChatRoomProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [typingUsers, setTypingUsers] = useState<TypingUser[]>([]);
@@ -289,12 +291,18 @@ export function ChatRoom({
             </p>
           ) : null}
           <div className="mb-2 grid gap-2 sm:grid-cols-2">
-            <input
+            <select
               value={referencedItemId}
-              onChange={(e) => setReferencedItemId(e.target.value.trim())}
-              placeholder="Optional: Reference item ID"
+              onChange={(e) => setReferencedItemId(e.target.value)}
               className="rounded-md border border-sky-300 bg-white px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-sky-400 dark:border-sky-700 dark:bg-sky-950"
-            />
+            >
+              <option value="">No referenced item</option>
+              {availableItems.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
             {itemId ? (
               <button
                 type="button"

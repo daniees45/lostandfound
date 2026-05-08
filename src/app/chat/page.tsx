@@ -22,10 +22,22 @@ export default async function ChatPage({ searchParams }: ChatPageProps) {
   const itemId = params.itemId?.trim() || null;
   const refItemId = params.refItemId?.trim() || itemId;
 
+  const db = initializeDatabase();
+
+  const pickerRows = await db
+    .select({ id: items.id, title: items.title, status: items.status })
+    .from(items)
+    .orderBy(items.created_at)
+    .limit(100);
+
+  const pickerItems = pickerRows.map((row) => ({
+    id: row.id,
+    label: `${row.title} (${row.status})`,
+  }));
+
   let itemTitle: string | undefined;
   let referencedItemTitle: string | undefined;
   if (itemId || refItemId) {
-    const db = initializeDatabase();
     if (itemId) {
       const item = await db
         .select({ title: items.title })
@@ -52,6 +64,7 @@ export default async function ChatPage({ searchParams }: ChatPageProps) {
       itemTitle={itemTitle}
       initialReferencedItemId={refItemId}
       initialReferencedItemTitle={referencedItemTitle}
+      availableItems={pickerItems}
     />
   );
 }
