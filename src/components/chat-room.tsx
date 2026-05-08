@@ -8,26 +8,72 @@ type ChatMessage = {
   senderId: string;
   senderName: string;
   createdAt: string;
+  referencedItemId?: string | null;
+  referencedItemTitle?: string | null;
+};
+
+type TypingUser = {
+  userId: string;
+  name: string;
 };
 
 type ChatRoomProps = {
   currentUserId: string;
   itemId: string | null;
   itemTitle?: string;
+  initialReferencedItemId?: string | null;
+  initialReferencedItemTitle?: string;
 };
 
-export function ChatRoom({ currentUserId, itemId, itemTitle }: ChatRoomProps) {
+export function ChatRoom({
+  currentUserId,
+  itemId,
+  itemTitle,
+  initialReferencedItemId,
+  initialReferencedItemTitle,
+}: ChatRoomProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [typingUsers, setTypingUsers] = useState<TypingUser[]>([]);
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [chatAlert, setChatAlert] = useState<string | null>(null);
+  const [randomAlert, setRandomAlert] = useState<string | null>(null);
+  const [referencedItemId, setReferencedItemId] = useState<string>(initialReferencedItemId || "");
   const [error, setError] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
+  const latestMessageIdRef = useRef<string | null>(null);
+  const typingStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const typingPulseRef = useRef(0);
 
   const title = useMemo(() => {
     if (itemTitle) return `Item chat: ${itemTitle}`;
     return "General Lost & Found chat";
   }, [itemTitle]);
+
+  const sendTypingStatus = useCallback(
+    async (typing: boolean) => {
+      try {
+        await fetch("/api/chat/typing", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ itemId, typing }),
+        });
+      } catch {
+        // best effort only
+      }
+    },
+    [itemId]
+  );
+
+  const maybeNotify = useCallback((titleText: string, body: string) => {
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+    if (Notification.permission === "granted") {
+      new Notification(titleText, { body });
+    }
+  }, []);
 
   const fetchMessages = useCallback(async () => {
     const params = new URLSearchParams();
@@ -44,15 +90,50 @@ export function ChatRoom({ currentUserId, itemId, itemTitle }: ChatRoomProps) {
         throw new Error("Could not load chat messages.");
       }
 
-      const data = (await res.json()) as { messages: ChatMessage[] };
-      setMessages(data.messages || []);
+      const data = (await res.json()) as {
+        messages: ChatMessage[];
+        typingUsers?: TypingUser[];
+      };
+      const nextMessages = data.messages || [];
+      const lastMessage = nextMessages[nextMessages.length - 1];
+
+      if (
+        lastMessage &&
+        latestMessageIdRef.current &&
+        lastMessage.id !== latestMessageIdRef.current &&
+        lastMessage.senderId !== currentUserId
+      ) {
+        const text = `New message from ${lastMessage.senderName}`;
+        setChatAlert(text);
+        maybeNotify("New chat message", `${lastMessage.senderName}: ${lastMessage.body.slice(0, 90)}`);
+      }
+
+      latestMessageIdRef.current = lastMessage?.id || latestMessageIdRef.current;
+      setMessages(nextMessages);
+      setTypingUsers(data.typingUsers || []);
       setError(null);
     } catch {
       setError("Could not refresh messages. Retrying...");
     } finally {
       setLoading(false);
     }
-  }, [itemId]);
+  }, [currentUserId, itemId, maybeNotify]);
+
+  const fetchRandomItemAlert = useCallback(async () => {
+    try {
+      const res = await fetch("/api/chat/random-item-message", {
+        method: "GET",
+        cache: "no-store",
+      });
+      if (!res.ok) return;
+      const data = (await res.json()) as { alert?: string };
+      if (data.alert) {
+        setRandomAlert(data.alert);
+      }
+    } catch {
+      // ignore alert fetch issues
+    }
+  }, []);
 
   useEffect(() => {
     void fetchMessages();
@@ -63,8 +144,29 @@ export function ChatRoom({ currentUserId, itemId, itemTitle }: ChatRoomProps) {
   }, [fetchMessages]);
 
   useEffect(() => {
+    void fetchRandomItemAlert();
+    const timer = setInterval(() => {
+      void fetchRandomItemAlert();
+    }, 45000);
+    return () => clearInterval(timer);
+  }, [fetchRandomItemAlert]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+    if (Notification.permission === "default") {
+      void Notification.requestPermission();
+    }
+  }, []);
+
+  useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length]);
+
+  useEffect(() => {
+    return () => {
+      void sendTypingStatus(false);
+    };
+  }, [sendTypingStatus]);
 
   async function handleSend(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -81,6 +183,7 @@ export function ChatRoom({ currentUserId, itemId, itemTitle }: ChatRoomProps) {
         body: JSON.stringify({
           itemId,
           message,
+          referencedItemId: referencedItemId || null,
         }),
       });
 
@@ -89,6 +192,7 @@ export function ChatRoom({ currentUserId, itemId, itemTitle }: ChatRoomProps) {
       }
 
       setDraft("");
+      await sendTypingStatus(false);
       await fetchMessages();
     } catch {
       setError("Failed to send your message. Please try again.");
@@ -105,6 +209,21 @@ export function ChatRoom({ currentUserId, itemId, itemTitle }: ChatRoomProps) {
           <p className="mt-1 text-xs text-sky-700 dark:text-sky-300">
             Realtime polling every 2 seconds in Turso mode.
           </p>
+          {chatAlert ? (
+            <p className="mt-2 rounded-md bg-amber-100 px-2 py-1 text-xs text-amber-900">
+              {chatAlert}
+            </p>
+          ) : null}
+          {randomAlert ? (
+            <p className="mt-2 rounded-md bg-sky-100 px-2 py-1 text-xs text-sky-800 dark:bg-sky-900 dark:text-sky-100">
+              {randomAlert}
+            </p>
+          ) : null}
+          {initialReferencedItemTitle ? (
+            <p className="mt-2 rounded-md bg-emerald-100 px-2 py-1 text-xs text-emerald-800 dark:bg-emerald-900 dark:text-emerald-100">
+              You are referencing: {initialReferencedItemTitle}
+            </p>
+          ) : null}
         </div>
 
         <div className="h-[420px] overflow-y-auto px-4 py-4">
@@ -130,6 +249,18 @@ export function ChatRoom({ currentUserId, itemId, itemTitle }: ChatRoomProps) {
                   >
                     <p className="text-[11px] opacity-80">{message.senderName}</p>
                     <p className="mt-0.5 whitespace-pre-wrap">{message.body}</p>
+                    {message.referencedItemId ? (
+                      <a
+                        href={`/items/${message.referencedItemId}`}
+                        className={`mt-1 inline-block rounded px-2 py-0.5 text-[11px] underline ${
+                          own
+                            ? "bg-white/20 text-white"
+                            : "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200"
+                        }`}
+                      >
+                        Referenced item: {message.referencedItemTitle || message.referencedItemId}
+                      </a>
+                    ) : null}
                     <p className="mt-1 text-[10px] opacity-70">
                       {new Date(message.createdAt).toLocaleTimeString()}
                     </p>
@@ -137,6 +268,11 @@ export function ChatRoom({ currentUserId, itemId, itemTitle }: ChatRoomProps) {
                 </div>
               );
             })}
+            {typingUsers.length > 0 ? (
+              <p className="text-xs text-sky-600 dark:text-sky-300">
+                {typingUsers.map((u) => u.name).join(", ")} typing...
+              </p>
+            ) : null}
             <div ref={endRef} />
           </div>
         </div>
@@ -152,10 +288,43 @@ export function ChatRoom({ currentUserId, itemId, itemTitle }: ChatRoomProps) {
               {error}
             </p>
           ) : null}
+          <div className="mb-2 grid gap-2 sm:grid-cols-2">
+            <input
+              value={referencedItemId}
+              onChange={(e) => setReferencedItemId(e.target.value.trim())}
+              placeholder="Optional: Reference item ID"
+              className="rounded-md border border-sky-300 bg-white px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-sky-400 dark:border-sky-700 dark:bg-sky-950"
+            />
+            {itemId ? (
+              <button
+                type="button"
+                onClick={() => setReferencedItemId(itemId)}
+                className="rounded-md border border-sky-300 px-3 py-2 text-xs hover:bg-sky-100 dark:border-sky-700 dark:hover:bg-sky-900"
+              >
+                Reference this chat item
+              </button>
+            ) : null}
+          </div>
           <div className="flex gap-2">
             <input
               value={draft}
-              onChange={(e) => setDraft(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value;
+                setDraft(value);
+
+                const now = Date.now();
+                if (value.trim() && now - typingPulseRef.current > 1200) {
+                  typingPulseRef.current = now;
+                  void sendTypingStatus(true);
+                }
+
+                if (typingStopTimerRef.current) {
+                  clearTimeout(typingStopTimerRef.current);
+                }
+                typingStopTimerRef.current = setTimeout(() => {
+                  void sendTypingStatus(false);
+                }, 1800);
+              }}
               maxLength={1000}
               placeholder="Type your message..."
               className="flex-1 rounded-md border border-sky-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-sky-400 dark:border-sky-700 dark:bg-sky-950"

@@ -5,6 +5,7 @@ import { initializeDatabase } from "@/lib/db";
 import { profiles, items as itemsTable } from "@/lib/schema";
 import { getCurrentUser } from "@/lib/auth";
 import { createUserProfile } from "@/lib/auth-turso";
+import { cloudinaryReady, uploadImageToCloudinary } from "@/lib/cloudinary";
 import { suggestTagsAndCategory } from "@/lib/ai-tagging";
 import { generateEmbedding } from "@/lib/embeddings";
 import {
@@ -118,8 +119,19 @@ export async function createItem(
   let visionCategory: string | null = null;
 
   if (uploadedImage) {
-    const bytes = Buffer.from(await uploadedImage.arrayBuffer());
-    imageUrl = `data:${uploadedImage.type};base64,${bytes.toString("base64")}`;
+    if (!cloudinaryReady()) {
+      return {
+        message:
+          "Image upload is unavailable until Cloudinary is configured (CLOUDINARY_CLOUD_NAME + CLOUDINARY_UPLOAD_PRESET).",
+      };
+    }
+
+    try {
+      imageUrl = await uploadImageToCloudinary(uploadedImage);
+    } catch (err) {
+      console.error("Error uploading image to Cloudinary:", err);
+      return { message: "Image upload failed. Please try another image." };
+    }
   }
 
   const mergedTags = Array.from(new Set([...ai.tags, ...visionTags])).slice(0, 10);

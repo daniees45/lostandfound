@@ -19,6 +19,7 @@ export const profiles = sqliteTable(
       .notNull(),
     email: text("email").unique(),
     full_name: text("full_name"),
+    avatar_url: text("avatar_url"),
     created_at: integer("created_at", { mode: "timestamp" })
       .default(sql`(unixepoch())`)
       .notNull(),
@@ -239,6 +240,9 @@ export const chat_messages = sqliteTable(
       .references(() => profiles.id, { onDelete: "cascade" })
       .notNull(),
     body: text("body").notNull(),
+    referenced_item_id: text("referenced_item_id").references(() => items.id, {
+      onDelete: "set null",
+    }),
     created_at: integer("created_at", { mode: "timestamp" })
       .default(sql`(unixepoch())`)
       .notNull(),
@@ -252,5 +256,45 @@ export const chat_messages = sqliteTable(
       table.sender_id,
       table.created_at
     ),
+  })
+);
+
+// Per-user chat read cursor
+export const chat_reads = sqliteTable(
+  "chat_reads",
+  {
+    room_id: text("room_id")
+      .references(() => chat_rooms.id, { onDelete: "cascade" })
+      .notNull(),
+    user_id: text("user_id")
+      .references(() => profiles.id, { onDelete: "cascade" })
+      .notNull(),
+    last_read_at: integer("last_read_at", { mode: "timestamp" })
+      .default(sql`(unixepoch())`)
+      .notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.room_id, table.user_id] }),
+    userIdx: index("chat_reads_user_idx").on(table.user_id, table.last_read_at),
+  })
+);
+
+// Active typing indicators (ephemeral)
+export const chat_typing = sqliteTable(
+  "chat_typing",
+  {
+    room_id: text("room_id")
+      .references(() => chat_rooms.id, { onDelete: "cascade" })
+      .notNull(),
+    user_id: text("user_id")
+      .references(() => profiles.id, { onDelete: "cascade" })
+      .notNull(),
+    updated_at: integer("updated_at", { mode: "timestamp" })
+      .default(sql`(unixepoch())`)
+      .notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.room_id, table.user_id] }),
+    roomUpdatedIdx: index("chat_typing_room_updated_idx").on(table.room_id, table.updated_at),
   })
 );

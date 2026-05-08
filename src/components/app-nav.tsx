@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { and, eq } from "drizzle-orm";
+import { and, eq, gt, isNull, ne, or } from "drizzle-orm";
 import { getCurrentUser } from "@/lib/auth";
 import { initializeDatabase } from "@/lib/db";
-import { notifications, profiles } from "@/lib/schema";
+import { chat_messages, chat_reads, notifications, profiles } from "@/lib/schema";
 import { signOut } from "@/app/actions/auth";
 
 const publicLinks = [
@@ -13,7 +13,8 @@ const publicLinks = [
 const authLinks = [
   { href: "/report", label: "Report Item" },
   { href: "/dashboard", label: "Dashboard" },
-  { href: "/items?chatMessage=Open+chat+from+an+item+card&chatSuccess=1", label: "Chat" },
+  { href: "/profile", label: "Profile" },
+  { href: "/chat", label: "Chat" },
   { href: "/notifications", label: "Notifications" },
   { href: "/pickup", label: "Pickup" },
 ];
@@ -21,7 +22,9 @@ const authLinks = [
 export async function AppNav() {
   let user = null;
   let unreadNotifications = 0;
+  let unreadChat = 0;
   let userRole: string | null = null;
+  let avatarUrl: string | null = null;
 
   try {
     user = await getCurrentUser();
@@ -33,14 +36,30 @@ export async function AppNav() {
           .from(notifications)
           .where(and(eq(notifications.user_id, user.id), eq(notifications.read, false))),
         db
-          .select({ role: profiles.role })
+          .select({ role: profiles.role, avatar_url: profiles.avatar_url })
           .from(profiles)
           .where(eq(profiles.id, user.id))
           .get(),
       ]);
 
+      const unreadChatRows = await db
+        .select({ id: chat_messages.id })
+        .from(chat_messages)
+        .leftJoin(
+          chat_reads,
+          and(eq(chat_reads.room_id, chat_messages.room_id), eq(chat_reads.user_id, user.id))
+        )
+        .where(
+          and(
+            ne(chat_messages.sender_id, user.id),
+            or(isNull(chat_reads.last_read_at), gt(chat_messages.created_at, chat_reads.last_read_at))
+          )
+        );
+
       unreadNotifications = unreadRows.length;
+      unreadChat = unreadChatRows.length;
       userRole = profile?.role ?? null;
+      avatarUrl = profile?.avatar_url ?? null;
     }
   } catch {
     // no session or db not configured
@@ -72,6 +91,11 @@ export async function AppNav() {
                     className="rounded-md px-3 py-1.5 text-sky-100 hover:bg-sky-700 hover:text-white dark:hover:bg-sky-800"
                   >
                     {link.label}
+                    {link.href === "/chat" && unreadChat > 0 ? (
+                      <span className="ml-1.5 rounded-full bg-amber-300 px-1.5 py-0.5 text-[11px] font-semibold text-sky-900">
+                        {unreadChat}
+                      </span>
+                    ) : null}
                     {link.href === "/notifications" && unreadNotifications > 0 ? (
                       <span className="ml-1.5 rounded-full bg-white px-1.5 py-0.5 text-[11px] text-sky-700">
                         {unreadNotifications}
@@ -91,6 +115,21 @@ export async function AppNav() {
                 Admin
               </Link>
             </li>
+          ) : null}
+
+          {user ? (
+            avatarUrl ? (
+              <li>
+                <Link href="/profile" className="block">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={avatarUrl}
+                    alt="Profile"
+                    className="h-8 w-8 rounded-full border border-white/50 object-cover"
+                  />
+                </Link>
+              </li>
+            ) : null
           ) : null}
 
           {user ? (

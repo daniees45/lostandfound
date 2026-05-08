@@ -338,6 +338,12 @@ export default async function ItemsPage({
                   >
                     Open chat
                   </Link>
+                  <Link
+                    href={`/chat?itemId=${item.id}&refItemId=${item.id}`}
+                    className="inline-block rounded-md border border-emerald-300 px-3 py-1.5 text-xs text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-950"
+                  >
+                    Reference in chat
+                  </Link>
                 </div>
 
                 <div className="mt-2 text-xs">
@@ -424,12 +430,20 @@ export default async function ItemsPage({
                     View details
                   </Link>
                   {currentUserId && item.user_id === currentUserId ? (
-                    <Link
-                      href={`/chat?itemId=${item.id}`}
-                      className="inline-block rounded-md border border-sky-300 px-3 py-1.5 text-xs hover:bg-sky-100 dark:border-sky-700 dark:hover:bg-sky-900"
-                    >
-                      Open chat
-                    </Link>
+                    <>
+                      <Link
+                        href={`/chat?itemId=${item.id}`}
+                        className="inline-block rounded-md border border-sky-300 px-3 py-1.5 text-xs hover:bg-sky-100 dark:border-sky-700 dark:hover:bg-sky-900"
+                      >
+                        Open chat
+                      </Link>
+                      <Link
+                        href={`/chat?itemId=${item.id}&refItemId=${item.id}`}
+                        className="inline-block rounded-md border border-emerald-300 px-3 py-1.5 text-xs text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-950"
+                      >
+                        Reference in chat
+                      </Link>
+                    </>
                   ) : null}
                 </div>
                 <div className="mt-2 text-xs text-sky-600 dark:text-sky-400">

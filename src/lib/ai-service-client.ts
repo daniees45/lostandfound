@@ -2,7 +2,9 @@
  * AI Service Client - Calls Python backend AI services from Next.js
  */
 
-const AI_SERVICE_URL = process.env.NEXT_PUBLIC_AI_SERVICE_URL || "http://localhost:8000";
+const AI_SERVICE_URL =
+  process.env.NEXT_PUBLIC_AI_SERVICE_URL ||
+  "https://lostandfound-project.onrender.com";
 
 // ==================== SMART MATCH ====================
 export async function getSmartMatches(

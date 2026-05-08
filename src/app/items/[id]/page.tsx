@@ -195,6 +195,12 @@ export default async function ItemDetailPage({
               >
                 Open chat
               </Link>
+              <Link
+                href={`/chat?itemId=${item.id}&refItemId=${item.id}`}
+                className="block rounded-md border border-emerald-300 px-3 py-2 text-center text-sm text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-950"
+              >
+                Reference this item in chat
+              </Link>
 
               {!currentUserId ? (
                 <button

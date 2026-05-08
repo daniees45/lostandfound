@@ -13,7 +13,7 @@ export async function proxy(request: NextRequest) {
   const sessionToken = request.cookies.get("lf_session")?.value;
   const user = verifySessionToken(sessionToken);
 
-  const protectedPaths = ["/dashboard", "/report", "/chat", "/pickup"];
+  const protectedPaths = ["/dashboard", "/report", "/chat", "/pickup", "/profile"];
   const isProtected = protectedPaths.some((p) => pathname.startsWith(p));
   const authPathsAllowedWhenSignedIn = [
     "/auth/callback",
@@ -47,6 +47,7 @@ export const config = {
     "/report/:path*",
     "/chat/:path*",
     "/pickup/:path*",
+    "/profile/:path*",
     "/notifications/:path*",
     "/admin/:path*",
     "/auth/:path*",
