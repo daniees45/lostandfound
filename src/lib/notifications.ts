@@ -1,9 +1,10 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { randomUUID } from "crypto";
 import { sendEmail } from "@/lib/email";
+import { initializeDatabase } from "@/lib/db";
+import { notifications } from "@/lib/schema";
 import { prioritizeNotifications } from "@/lib/ai-service-client";
 
 type NotifyStatusChangeInput = {
-  supabase: SupabaseClient;
   userId: string;
   email?: string | null;
   itemTitle: string;
@@ -11,23 +12,24 @@ type NotifyStatusChangeInput = {
 };
 
 async function logNotification(
-  supabase: SupabaseClient,
   userId: string,
-  channel: "email" | "sms_dummy",
+  type: "claim_submitted" | "claim_approved" | "claim_rejected" | "item_found",
+  title: string,
   message: string,
-  status: "queued" | "sent" | "failed"
+  read = false
 ) {
-  await supabase.from("notification_logs").insert({
+  const db = initializeDatabase();
+  await db.insert(notifications).values({
+    id: `notif_${randomUUID()}`,
     user_id: userId,
-    channel,
+    type,
+    title,
     message,
-    status,
-    is_read: false,
+    read,
   });
 }
 
 export async function notifyStatusChange({
-  supabase,
   userId,
   email,
   itemTitle,
@@ -52,21 +54,15 @@ export async function notifyStatusChange({
   });
 
   if (emailResult === "sent") {
-    await logNotification(supabase, userId, "email", message, "sent");
+    await logNotification(userId, "item_found", "Status update sent", message);
   } else if (emailResult === "failed") {
-    await logNotification(supabase, userId, "email", message, "failed");
+    await logNotification(userId, "item_found", "Status update failed", message);
   } else {
-    await logNotification(supabase, userId, "email", message, "queued");
+    await logNotification(userId, "item_found", "Status update queued", message);
   }
 
   // Only send SMS for normal/high priority notifications (score >= 0.4)
   if (priorityScore >= 0.4) {
-    await logNotification(
-      supabase,
-      userId,
-      "sms_dummy",
-      `${priorityLabel} [SMS PREVIEW] ${message}`,
-      "sent"
-    );
+    await logNotification(userId, "item_found", "SMS preview", `${priorityLabel} [SMS PREVIEW] ${message}`);
   }
 }

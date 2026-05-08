@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { getCurrentUser } from "@/lib/auth";
 import { initializeDatabase } from "@/lib/db";
 import { profiles, items as itemsTable, claims as claimsTable } from "@/lib/schema";
 import { Item } from "@/lib/types";
@@ -47,11 +47,7 @@ export default async function DashboardPage({
   const feedbackMessage = claimMessage ?? reportMessage;
   const feedbackSuccess = claimMessage ? claimSuccess : reportSuccess;
 
-  const supabase = await createSupabaseServerClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   if (!user) {
     redirect("/auth/login");

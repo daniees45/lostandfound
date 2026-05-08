@@ -1,13 +1,12 @@
-import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { getCurrentUser } from "@/lib/auth";
 import { initializeDatabase } from "@/lib/db";
 import { items as itemsTable, claims as claimsTable } from "@/lib/schema";
-import { generateEmbedding, toPgVectorLiteral } from "@/lib/embeddings";
 import { mockItems } from "@/lib/mock-data";
 import { Item } from "@/lib/types";
 import Link from "next/link";
 import { submitClaimAction } from "@/app/actions/claims";
 import { FlashBanner } from "@/components/flash-banner";
-import { eq, inArray, desc, like, or } from "drizzle-orm";
+import { eq, inArray, desc } from "drizzle-orm";
 
 function formatDate(value?: string) {
   if (!value) return "Unknown";
@@ -78,10 +77,7 @@ export default async function ItemsPage({
   const tursoUrl = process.env.TURSO_DATABASE_URL;
 
   if (tursoUrl) {
-    const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await getCurrentUser();
 
     currentUserId = user?.id ?? null;
 
@@ -228,8 +224,7 @@ export default async function ItemsPage({
             items.map((item) => item.id)
           )
         );
-      const claimStatusByItem = new Map<string, "pending" | "approved" | "rejected">();
-      
+
       for (const claim of claimData ?? []) {
         claimStatusByItem.set(
           claim.item_id as string,

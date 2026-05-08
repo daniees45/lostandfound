@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { and, desc, eq, inArray, ne } from "drizzle-orm";
 import { submitClaimAction } from "@/app/actions/claims";
-import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { getCurrentUser } from "@/lib/auth";
+import { initializeDatabase } from "@/lib/db";
+import { claims as claimsTable, items as itemsTable } from "@/lib/schema";
 import { Item } from "@/lib/types";
 
 function badgeClass(status: Item["status"]) {
@@ -31,56 +34,65 @@ export default async function ItemDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
+  const db = initializeDatabase();
 
-  const { data: itemRow, error: itemError } = await supabase
-    .from("items")
-    .select("id, user_id, title, description, category, ai_tags, location, status, created_at, image_url")
-    .eq("id", id)
-    .maybeSingle();
-
-  if (itemError) {
-    notFound();
-  }
+  const itemRow = await db
+    .select({
+      id: itemsTable.id,
+      user_id: itemsTable.user_id,
+      title: itemsTable.title,
+      description: itemsTable.description,
+      category: itemsTable.category,
+      ai_tags: itemsTable.ai_tags,
+      location: itemsTable.location,
+      status: itemsTable.status,
+      created_at: itemsTable.created_at,
+      image_url: itemsTable.image_url,
+    })
+    .from(itemsTable)
+    .where(eq(itemsTable.id, id))
+    .get();
 
   if (!itemRow) {
     notFound();
   }
 
-  const item = itemRow as Item;
+  const item = {
+    ...itemRow,
+    created_at: itemRow.created_at?.toISOString(),
+  } as Item;
   const currentUserId = user?.id ?? null;
   const isOwner = currentUserId === item.user_id;
 
   let claimStatus: "pending" | "approved" | "rejected" | null = null;
   if (currentUserId && !isOwner) {
-    const { data: myClaim } = await supabase
-      .from("claims")
-      .select("status")
-      .eq("item_id", item.id)
-      .eq("claimant_id", currentUserId)
-      .order("created_at", { ascending: false })
+    const myClaim = await db
+      .select({ status: claimsTable.status })
+      .from(claimsTable)
+      .where(and(eq(claimsTable.item_id, item.id), eq(claimsTable.claimant_id, currentUserId)))
+      .orderBy(desc(claimsTable.created_at))
       .limit(1)
-      .maybeSingle();
+      .get();
 
-    claimStatus = (myClaim?.status as "pending" | "approved" | "rejected" | undefined) ?? null;
+    claimStatus = myClaim?.status ?? null;
   }
 
   let approvedClaimInfo: { claimantId: string; proofDescription?: string | null } | null = null;
   if (isOwner || currentUserId) {
-    const { data: approvedClaim } = await supabase
-      .from("claims")
-      .select("claimant_id, proof_description")
-      .eq("item_id", item.id)
-      .eq("status", "approved")
-      .maybeSingle();
+    const approvedClaim = await db
+      .select({
+        claimant_id: claimsTable.claimant_id,
+        proof_description: claimsTable.proof_description,
+      })
+      .from(claimsTable)
+      .where(and(eq(claimsTable.item_id, item.id), eq(claimsTable.status, "approved")))
+      .get();
 
     if (approvedClaim) {
       approvedClaimInfo = {
-        claimantId: approvedClaim.claimant_id as string,
-        proofDescription: (approvedClaim.proof_description as string | null) ?? null,
+        claimantId: approvedClaim.claimant_id,
+        proofDescription: approvedClaim.proof_description ?? null,
       };
     }
   }
@@ -88,15 +100,29 @@ export default async function ItemDetailPage({
   // ── Smart matches: fetch opposite-type items in same category ────────────
   const oppositeStatuses =
     item.status === "lost" ? ["found", "held_at_pickup"] : ["lost"];
-  const { data: matchData } = await supabase
-    .from("items")
-    .select("id, title, category, location, status, created_at")
-    .in("status", oppositeStatuses)
-    .eq("category", item.category)
-    .neq("id", item.id)
-    .order("created_at", { ascending: false })
+  const matchData = await db
+    .select({
+      id: itemsTable.id,
+      title: itemsTable.title,
+      category: itemsTable.category,
+      location: itemsTable.location,
+      status: itemsTable.status,
+      created_at: itemsTable.created_at,
+    })
+    .from(itemsTable)
+    .where(
+      and(
+        inArray(itemsTable.status, oppositeStatuses as ["lost"] | ["found", "held_at_pickup"]),
+        eq(itemsTable.category, item.category),
+        ne(itemsTable.id, item.id)
+      )
+    )
+    .orderBy(desc(itemsTable.created_at))
     .limit(3);
-  const possibleMatches = (matchData ?? []) as Array<{
+  const possibleMatches = (matchData ?? []).map((m) => ({
+    ...m,
+    created_at: m.created_at?.toISOString() ?? new Date().toISOString(),
+  })) as Array<{
     id: string;
     title: string;
     category: string;

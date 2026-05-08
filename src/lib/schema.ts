@@ -28,6 +28,23 @@ export const profiles = sqliteTable(
   })
 );
 
+// Local auth credentials table
+export const user_credentials = sqliteTable(
+  "user_credentials",
+  {
+    user_id: text("user_id")
+      .primaryKey()
+      .references(() => profiles.id, { onDelete: "cascade" }),
+    password_hash: text("password_hash").notNull(),
+    updated_at: integer("updated_at", { mode: "timestamp" })
+      .default(sql`(unixepoch())`)
+      .notNull(),
+  },
+  (table) => ({
+    updatedAtIdx: index("user_credentials_updated_at_idx").on(table.updated_at),
+  })
+);
+
 // Items table
 export const items = sqliteTable(
   "items",

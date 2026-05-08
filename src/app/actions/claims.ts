@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { initializeDatabase } from "@/lib/db";
 import { claims as claimsTable, items as itemsTable, profiles } from "@/lib/schema";
-import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { getCurrentUser } from "@/lib/auth";
 import { notifyStatusChange } from "@/lib/notifications";
 import { assessClaimCredibility, getEvidenceQuestions } from "@/lib/ai-service-client";
 import { z } from "zod";
@@ -42,10 +42,7 @@ export async function createClaim(
     return { errors: parsed.error.flatten().fieldErrors };
   }
 
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   if (!user) {
     return { message: "You must be signed in to submit a claim." };
@@ -155,10 +152,7 @@ export async function reviewClaim(
     return { errors: parsed.error.flatten().fieldErrors };
   }
 
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   if (!user) {
     return { message: "You must be signed in to review a claim." };
@@ -227,7 +221,6 @@ export async function reviewClaim(
         .get();
 
       await notifyStatusChange({
-        supabase,
         userId: claim.claimant_id,
         email: claimantProfile?.email,
         itemTitle: item.title,

@@ -3,20 +3,18 @@
 import { redirect } from "next/navigation";
 import { initializeDatabase } from "@/lib/db";
 import { profiles, items as itemsTable } from "@/lib/schema";
-import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { getCurrentUser } from "@/lib/auth";
 import { createUserProfile } from "@/lib/auth-turso";
 import { suggestTagsAndCategory } from "@/lib/ai-tagging";
-import { generateEmbedding, toPgVectorLiteral } from "@/lib/embeddings";
+import { generateEmbedding } from "@/lib/embeddings";
 import {
   normalizeMultilingualReport,
   generateItemSummary,
-  extractTagsFromImageUrl,
 } from "@/lib/ai-service-client";
 import { z } from "zod";
 import { eq, inArray } from "drizzle-orm";
 import { randomUUID } from "crypto";
 
-const ITEM_IMAGE_BUCKET = "item-images";
 const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 
 const ReportSchema = z.object({
@@ -34,10 +32,6 @@ export type ReportState =
 
 function generatePickupCode() {
   return String(Math.floor(100000 + Math.random() * 900000));
-}
-
-function normalizeFileName(fileName: string) {
-  return fileName.replace(/[^a-zA-Z0-9._-]/g, "-").toLowerCase();
 }
 
 export async function createItem(
@@ -72,10 +66,7 @@ export async function createItem(
     uploadedImage = imageFile;
   }
 
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   if (!user) {
     return { message: "You must be signed in to report an item." };
@@ -127,40 +118,8 @@ export async function createItem(
   let visionCategory: string | null = null;
 
   if (uploadedImage) {
-    const extension = uploadedImage.name.includes(".")
-      ? uploadedImage.name.split(".").pop()?.toLowerCase() ?? "jpg"
-      : "jpg";
-    const objectPath = `${user.id}/${crypto.randomUUID()}-${normalizeFileName(
-      uploadedImage.name || `upload.${extension}`
-    )}`;
-
-    const { error: uploadError } = await supabase.storage
-      .from(ITEM_IMAGE_BUCKET)
-      .upload(objectPath, uploadedImage, {
-        cacheControl: "3600",
-        contentType: uploadedImage.type,
-        upsert: false,
-      });
-
-    if (uploadError) {
-      return {
-        message:
-          uploadError.message === "Bucket not found"
-            ? "Image storage is not configured yet. Run the updated SQL schema first, then try again."
-            : uploadError.message,
-      };
-    }
-
-    const { data: publicImage } = supabase.storage.from(ITEM_IMAGE_BUCKET).getPublicUrl(objectPath);
-    imageUrl = publicImage.publicUrl;
-
-    const vision = await extractTagsFromImageUrl(imageUrl);
-    if (Array.isArray(vision?.suggested_tags)) {
-      visionTags = vision.suggested_tags.filter((tag: unknown) => typeof tag === "string") as string[];
-    }
-    if (typeof vision?.suggested_category === "string") {
-      visionCategory = vision.suggested_category;
-    }
+    const bytes = Buffer.from(await uploadedImage.arrayBuffer());
+    imageUrl = `data:${uploadedImage.type};base64,${bytes.toString("base64")}`;
   }
 
   const mergedTags = Array.from(new Set([...ai.tags, ...visionTags])).slice(0, 10);

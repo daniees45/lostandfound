@@ -1,6 +1,9 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { desc, eq } from "drizzle-orm";
+import { getCurrentUser } from "@/lib/auth";
+import { initializeDatabase } from "@/lib/db";
+import { claims as claimsTable, items as itemsTable, profiles } from "@/lib/schema";
 import { Item } from "@/lib/types";
 import { AdminItemsTable } from "@/components/admin-items-table";
 import { AdminUsersTable, AdminClaimsTable } from "@/components/admin-users-table";
@@ -26,54 +29,83 @@ type Claim = {
 };
 
 export default async function AdminPage() {
-  const supabase = await createSupabaseServerClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   if (!user) redirect("/auth/login?redirectTo=/admin");
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role, full_name")
-    .eq("id", user.id)
-    .single();
+  const db = initializeDatabase();
+
+  const profile = await db
+    .select({ role: profiles.role, full_name: profiles.full_name })
+    .from(profiles)
+    .where(eq(profiles.id, user.id))
+    .get();
 
   if (profile?.role !== "admin") redirect("/dashboard");
 
-  const [{ data: itemsData }, { data: usersData }, { data: claimsRaw }] = await Promise.all([
-    supabase
-      .from("items")
-      .select("id, user_id, title, description, category, ai_tags, location, status, created_at, image_url")
-      .order("created_at", { ascending: false })
+  const [itemsData, usersData, claimsRaw] = await Promise.all([
+    db
+      .select({
+        id: itemsTable.id,
+        user_id: itemsTable.user_id,
+        title: itemsTable.title,
+        description: itemsTable.description,
+        category: itemsTable.category,
+        ai_tags: itemsTable.ai_tags,
+        location: itemsTable.location,
+        status: itemsTable.status,
+        created_at: itemsTable.created_at,
+        image_url: itemsTable.image_url,
+      })
+      .from(itemsTable)
+      .orderBy(desc(itemsTable.created_at))
       .limit(200),
-    supabase
-      .from("profiles")
-      .select("id, full_name, email, role, created_at")
-      .order("created_at", { ascending: false }),
-    supabase
-      .from("claims")
-      .select("id, item_id, claimant_id, proof_description, status, created_at")
-      .order("created_at", { ascending: false })
+    db
+      .select({
+        id: profiles.id,
+        full_name: profiles.full_name,
+        email: profiles.email,
+        role: profiles.role,
+        created_at: profiles.created_at,
+      })
+      .from(profiles)
+      .orderBy(desc(profiles.created_at)),
+    db
+      .select({
+        id: claimsTable.id,
+        item_id: claimsTable.item_id,
+        claimant_id: claimsTable.claimant_id,
+        proof_description: claimsTable.proof_description,
+        status: claimsTable.status,
+        created_at: claimsTable.created_at,
+      })
+      .from(claimsTable)
+      .orderBy(desc(claimsTable.created_at))
       .limit(200),
   ]);
 
-  const items = (itemsData ?? []) as Item[];
-  const users = (usersData ?? []) as Profile[];
+  const items = (itemsData ?? []).map((item) => ({
+    ...item,
+    created_at: item.created_at?.toISOString(),
+  })) as Item[];
+  const users = (usersData ?? []).map((profileRow) => ({
+    ...profileRow,
+    role: profileRow.role ?? "student",
+    created_at: profileRow.created_at?.toISOString(),
+  })) as Profile[];
 
   const itemTitleMap = new Map(items.map((i) => [i.id, i.title]));
   const userEmailMap = new Map(users.map((u) => [u.id, u.email ?? undefined]));
 
   const claims: Claim[] = (claimsRaw ?? []).map((c) => ({
-    id: c.id as string,
-    item_id: c.item_id as string,
-    claimant_id: c.claimant_id as string,
-    proof_description: c.proof_description as string | null,
-    status: c.status as string,
-    created_at: c.created_at as string,
-    item_title: itemTitleMap.get(c.item_id as string),
-    claimant_email: userEmailMap.get(c.claimant_id as string),
+    id: c.id,
+    item_id: c.item_id,
+    claimant_id: c.claimant_id,
+    proof_description: c.proof_description,
+    status: c.status,
+    created_at: c.created_at?.toISOString(),
+    item_title: itemTitleMap.get(c.item_id),
+    claimant_email: userEmailMap.get(c.claimant_id),
   }));
 
   return (

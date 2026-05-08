@@ -3,17 +3,14 @@
 import { revalidatePath } from "next/cache";
 import { initializeDatabase } from "@/lib/db";
 import { notifications } from "@/lib/schema";
-import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { getCurrentUser } from "@/lib/auth";
 import { eq, and } from "drizzle-orm";
 
 export async function markNotificationRead(formData: FormData) {
   const notificationId = String(formData.get("notificationId") ?? "");
   if (!notificationId) return;
 
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   if (!user) return;
 
@@ -38,10 +35,7 @@ export async function markNotificationRead(formData: FormData) {
 }
 
 export async function markAllNotificationsRead() {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   if (!user) return;
 

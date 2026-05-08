@@ -1,6 +1,9 @@
 import { redirect } from "next/navigation";
 import { PickupManager } from "@/components/pickup-manager";
-import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { and, desc, eq, inArray } from "drizzle-orm";
+import { getCurrentUser } from "@/lib/auth";
+import { initializeDatabase } from "@/lib/db";
+import { claims as claimsTable, items as itemsTable, profiles } from "@/lib/schema";
 
 type HeldPickupItem = {
   id: string;
@@ -18,61 +21,73 @@ type HeldPickupItem = {
 };
 
 export default async function PickupPage() {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   if (!user) {
     redirect("/auth/login");
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
+  const db = initializeDatabase();
+
+  const profile = await db
+    .select({ role: profiles.role })
+    .from(profiles)
+    .where(eq(profiles.id, user.id))
+    .get();
 
   if (profile?.role !== "pickup_point" && profile?.role !== "admin") {
     redirect("/dashboard");
   }
 
-  const { data: heldItemsData } = await supabase
-    .from("items")
-    .select("id, title, location, created_at")
-    .eq("status", "held_at_pickup")
-    .order("created_at", { ascending: false })
+  const heldItemsData = await db
+    .select({
+      id: itemsTable.id,
+      title: itemsTable.title,
+      location: itemsTable.location,
+      created_at: itemsTable.created_at,
+    })
+    .from(itemsTable)
+    .where(eq(itemsTable.status, "held_at_pickup"))
+    .orderBy(desc(itemsTable.created_at))
     .limit(50);
 
-  const heldItems = (heldItemsData ?? []) as Array<{
-    id: string;
-    title: string;
-    location: string;
-    created_at?: string;
-  }>;
+  const heldItems = (heldItemsData ?? []).map((item) => ({
+    ...item,
+    created_at: item.created_at?.toISOString(),
+  }));
 
   const itemIds = heldItems.map((item) => item.id);
-  const { data: approvedClaimsData } = itemIds.length
-    ? await supabase
-        .from("claims")
-        .select("item_id, claimant_id, proof_description")
-        .in("item_id", itemIds)
-        .eq("status", "approved")
-    : { data: [] as Array<{ item_id: string; claimant_id: string; proof_description?: string | null }> };
+  const approvedClaimsData = itemIds.length
+    ? await db
+        .select({
+          item_id: claimsTable.item_id,
+          claimant_id: claimsTable.claimant_id,
+          proof_description: claimsTable.proof_description,
+        })
+        .from(claimsTable)
+        .where(and(inArray(claimsTable.item_id, itemIds), eq(claimsTable.status, "approved")))
+    : [];
 
   const approvedClaims = approvedClaimsData ?? [];
   const claimantIds = [...new Set(approvedClaims.map((claim) => claim.claimant_id))];
 
-  const { data: claimantProfilesData } = claimantIds.length
-    ? await supabase.from("profiles").select("id, full_name, email").in("id", claimantIds)
-    : { data: [] as Array<{ id: string; full_name?: string | null; email?: string | null }> };
+  const claimantProfilesData = claimantIds.length
+    ? await db
+        .select({
+          id: profiles.id,
+          full_name: profiles.full_name,
+          email: profiles.email,
+        })
+        .from(profiles)
+        .where(inArray(profiles.id, claimantIds))
+    : [];
 
   const claimantProfiles = new Map(
     (claimantProfilesData ?? []).map((profile) => [
-      profile.id as string,
+      profile.id,
       {
-        fullName: (profile.full_name as string | null) ?? "Approved claimant",
-        email: (profile.email as string | null) ?? "No email on file",
+        fullName: profile.full_name ?? "Approved claimant",
+        email: profile.email ?? "No email on file",
       },
     ])
   );
@@ -81,10 +96,10 @@ export default async function PickupPage() {
     approvedClaims.map((claim) => [
       claim.item_id as string,
       {
-        claimantId: claim.claimant_id as string,
-        claimantName: claimantProfiles.get(claim.claimant_id as string)?.fullName ?? "Approved claimant",
-        claimantEmail: claimantProfiles.get(claim.claimant_id as string)?.email ?? "No email on file",
-        proofDescription: (claim.proof_description as string | null) ?? null,
+        claimantId: claim.claimant_id,
+        claimantName: claimantProfiles.get(claim.claimant_id)?.fullName ?? "Approved claimant",
+        claimantEmail: claimantProfiles.get(claim.claimant_id)?.email ?? "No email on file",
+        proofDescription: claim.proof_description ?? null,
       },
     ])
   );

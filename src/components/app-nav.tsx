@@ -1,5 +1,8 @@
 import Link from "next/link";
-import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { and, eq } from "drizzle-orm";
+import { getCurrentUser } from "@/lib/auth";
+import { initializeDatabase } from "@/lib/db";
+import { notifications, profiles } from "@/lib/schema";
 import { signOut } from "@/app/actions/auth";
 
 const publicLinks = [
@@ -20,28 +23,27 @@ export async function AppNav() {
   let unreadNotifications = 0;
   let userRole: string | null = null;
 
-  if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
-    try {
-      const supabase = await createSupabaseServerClient();
-      const { data } = await supabase.auth.getUser();
-      user = data.user;
+  try {
+    user = await getCurrentUser();
+    if (user) {
+      const db = initializeDatabase();
+      const [unreadRows, profile] = await Promise.all([
+        db
+          .select({ id: notifications.id })
+          .from(notifications)
+          .where(and(eq(notifications.user_id, user.id), eq(notifications.read, false))),
+        db
+          .select({ role: profiles.role })
+          .from(profiles)
+          .where(eq(profiles.id, user.id))
+          .get(),
+      ]);
 
-      if (user) {
-        const [{ count }, { data: profile }] = await Promise.all([
-          supabase
-            .from("notification_logs")
-            .select("id", { count: "exact", head: true })
-            .eq("user_id", user.id)
-            .eq("is_read", false),
-          supabase.from("profiles").select("role").eq("id", user.id).single(),
-        ]);
-
-        unreadNotifications = count ?? 0;
-        userRole = (profile?.role as string) ?? null;
-      }
-    } catch {
-      // not yet configured
+      unreadNotifications = unreadRows.length;
+      userRole = profile?.role ?? null;
     }
+  } catch {
+    // no session or db not configured
   }
 
   return (

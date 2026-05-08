@@ -1,10 +1,20 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { createSupabaseServerClient } from "@/lib/supabase-server";
-import { createUserProfile } from "@/lib/auth-turso";
+import { randomUUID } from "crypto";
 import { z } from "zod";
-import { headers } from "next/headers";
+import { and, eq } from "drizzle-orm";
+import { initializeDatabase } from "@/lib/db";
+import { profiles, user_credentials } from "@/lib/schema";
+import {
+  clearAuthSession,
+  ensureAuthTables,
+  getCurrentUser,
+  hashPassword,
+  setAuthSession,
+  upsertUserCredentials,
+  verifyPassword,
+} from "@/lib/auth";
 
 const LoginSchema = z.object({
   email: z.email(),
@@ -34,16 +44,6 @@ export async function login(
   _state: AuthState,
   formData: FormData
 ): Promise<AuthState> {
-  if (
-    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
-    !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  ) {
-    return {
-      message:
-        "Authentication service is not configured. Please contact the administrator.",
-    };
-  }
-
   const parsed = LoginSchema.safeParse({
     email: formData.get("email"),
     password: formData.get("password"),
@@ -53,32 +53,29 @@ export async function login(
     return { errors: parsed.error.flatten().fieldErrors };
   }
 
-  let supabase;
   try {
-    supabase = await createSupabaseServerClient();
+    await ensureAuthTables();
   } catch {
-    return { message: "Could not connect to authentication service. Please try again." };
+    return { message: "Could not initialize authentication. Please try again." };
   }
 
-  const { data, error } = await supabase.auth.signInWithPassword(parsed.data);
+  const db = initializeDatabase();
+  const record = await db
+    .select({
+      id: profiles.id,
+      email: profiles.email,
+      password_hash: user_credentials.password_hash,
+    })
+    .from(profiles)
+    .innerJoin(user_credentials, eq(profiles.id, user_credentials.user_id))
+    .where(eq(profiles.email, parsed.data.email.toLowerCase()))
+    .get();
 
-  if (error) {
-    if (
-      error.message.includes("DOCTYPE") ||
-      error.message.includes("not valid JSON") ||
-      error.message.includes("Failed to fetch")
-    ) {
-      return {
-        message:
-          "Cannot reach the authentication server. Please try again later.",
-      };
-    }
-    return { message: error.message };
+  if (!record?.id || !record.email || !verifyPassword(parsed.data.password, record.password_hash)) {
+    return { message: "Invalid email or password." };
   }
 
-  if (!data.user || !data.session) {
-    return { message: "Sign-in failed. Please confirm your email or check your credentials." };
-  }
+  await setAuthSession(record.id, record.email);
 
   const redirectTo = (formData.get("redirectTo") as string) || "/dashboard";
   redirect(redirectTo);
@@ -99,34 +96,38 @@ export async function signup(
   }
 
   const { fullName, email, password } = parsed.data;
-  const role = "student" as const;
+  const normalizedEmail = email.toLowerCase();
 
-  const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: { data: { full_name: fullName, role } },
-  });
-
-  if (error) {
-    return { message: error.message };
-  }
-
-  if (!data.user) {
-    return {
-      message: "Could not create account. Please try again.",
-    };
-  }
-
-  // Create user profile in Turso
   try {
-    await createUserProfile(data.user.id, email, fullName);
-  } catch (err) {
-    console.error("Error creating user profile in Turso:", err);
-    // Don't fail signup if profile creation fails, user can be created later
+    await ensureAuthTables();
+    const db = initializeDatabase();
+
+    const existing = await db
+      .select({ id: profiles.id })
+      .from(profiles)
+      .where(eq(profiles.email, normalizedEmail))
+      .get();
+
+    if (existing?.id) {
+      return { message: "An account with this email already exists." };
+    }
+
+    const userId = `usr_${randomUUID()}`;
+    await db.insert(profiles).values({
+      id: userId,
+      role: "student",
+      email: normalizedEmail,
+      full_name: fullName,
+    });
+
+    await upsertUserCredentials(userId, hashPassword(password));
+    await setAuthSession(userId, normalizedEmail);
+  } catch (error) {
+    console.error("Error creating account:", error);
+    return { message: "Could not create account. Please try again." };
   }
 
-  redirect("/auth/login?message=Check+your+email+to+confirm+your+account+(Check+spam+folder+if+you+don't+see+it).");
+  redirect("/dashboard");
 }
 
 export async function requestPasswordReset(
@@ -141,24 +142,9 @@ export async function requestPasswordReset(
     return { errors: parsed.error.flatten().fieldErrors };
   }
 
-  const supabase = await createSupabaseServerClient();
-  const headerStore = await headers();
-  const origin = headerStore.get("origin") ?? process.env.NEXT_PUBLIC_SITE_URL;
-  const redirectTo = origin
-    ? `${origin}/auth/callback?next=/auth/reset-password`
-    : undefined;
-
-  const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {
-    redirectTo,
-  });
-
-  if (error) {
-    return { message: error.message };
-  }
-
   return {
     message:
-      "If an account exists for that email, a reset link has been sent.",
+      "Password reset by email is disabled in Turso-only mode. Sign in and update your password from the reset page.",
   };
 }
 
@@ -183,30 +169,31 @@ export async function updatePassword(
     };
   }
 
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   if (!user) {
     return {
-      message: "Reset session expired. Request a new password reset link.",
+      message: "You must be signed in to update your password.",
     };
   }
 
-  const { error } = await supabase.auth.updateUser({
-    password: parsed.data.password,
-  });
+  const db = initializeDatabase();
+  const profile = await db
+    .select({ id: profiles.id })
+    .from(profiles)
+    .where(and(eq(profiles.id, user.id), eq(profiles.email, user.email)))
+    .get();
 
-  if (error) {
-    return { message: error.message };
+  if (!profile?.id) {
+    return { message: "Account not found." };
   }
+
+  await upsertUserCredentials(profile.id, hashPassword(parsed.data.password));
 
   redirect("/auth/login?message=Password+updated.+Please+sign+in");
 }
 
 export async function signOut() {
-  const supabase = await createSupabaseServerClient();
-  await supabase.auth.signOut();
+  await clearAuthSession();
   redirect("/auth/login");
 }

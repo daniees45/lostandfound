@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { getCurrentUser } from "@/lib/auth";
 import { initializeDatabase } from "@/lib/db";
 import { profiles, items as itemsTable, claims as claimsTable } from "@/lib/schema";
 import { z } from "zod";
@@ -14,10 +14,7 @@ export type AdminActionState =
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 async function assertAdmin() {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   if (!user) return { error: "Not authenticated.", db: null, user: null };
 

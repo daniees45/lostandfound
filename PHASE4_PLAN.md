@@ -33,7 +33,7 @@ This phase focuses on production-readiness gaps and the next user-facing feature
 - [src/app/auth/signup/page.tsx](src/app/auth/signup/page.tsx)
 - [src/app/dashboard/page.tsx](src/app/dashboard/page.tsx)
 - [src/app/actions/pickup.ts](src/app/actions/pickup.ts)
-- [supabase/schema.sql](supabase/schema.sql)
+- [src/lib/schema.ts](src/lib/schema.ts)
 
 #### Tasks
 
@@ -70,7 +70,7 @@ This phase focuses on production-readiness gaps and the next user-facing feature
 - [src/app/actions/pickup.ts](src/app/actions/pickup.ts)
 - [src/lib/notifications.ts](src/lib/notifications.ts)
 - [src/app/dashboard/page.tsx](src/app/dashboard/page.tsx)
-- [supabase/schema.sql](supabase/schema.sql)
+- [src/lib/schema.ts](src/lib/schema.ts)
 
 #### Tasks
 
@@ -96,7 +96,7 @@ This phase focuses on production-readiness gaps and the next user-facing feature
 #### Scope
 
 - Add image upload to report flow.
-- Store files in Supabase Storage.
+- Store files directly as `image_url` values managed in Turso mode.
 - Persist `image_url` on item creation.
 - Render thumbnails in cards.
 - Add dedicated item detail page.
@@ -106,13 +106,13 @@ This phase focuses on production-readiness gaps and the next user-facing feature
 - [src/app/report/page.tsx](src/app/report/page.tsx)
 - [src/app/actions/items.ts](src/app/actions/items.ts)
 - [src/app/items/page.tsx](src/app/items/page.tsx)
-- [supabase/schema.sql](supabase/schema.sql)
+- [src/lib/schema.ts](src/lib/schema.ts)
 - New route: `src/app/items/[id]/page.tsx`
 
 #### Tasks
 
 1. Add file input to report form.
-2. Upload image to Supabase Storage bucket.
+2. Persist uploaded image data into `image_url` in Turso mode.
 3. Save public or signed image URL to `items.image_url`.
 4. Display image preview on browse cards.
 5. Add detail page with full description, status timeline, and chat/claim actions.
@@ -175,7 +175,7 @@ This phase focuses on production-readiness gaps and the next user-facing feature
 - [src/lib/notifications.ts](src/lib/notifications.ts)
 - [src/components/app-nav.tsx](src/components/app-nav.tsx)
 - [src/app/dashboard/page.tsx](src/app/dashboard/page.tsx)
-- [supabase/schema.sql](supabase/schema.sql)
+- [src/lib/schema.ts](src/lib/schema.ts)
 - New route: `src/app/notifications/page.tsx`
 
 #### Tasks
@@ -209,4 +209,4 @@ This phase focuses on production-readiness gaps and the next user-facing feature
 
 ## Immediate Next Step
 
-Start P4.1 by locking public signup to `student` and adding the missing elevated-role RLS policies in [supabase/schema.sql](supabase/schema.sql).
+Start P4.1 by locking public signup to `student` and tightening role checks in [src/lib/schema.ts](src/lib/schema.ts) and server actions.

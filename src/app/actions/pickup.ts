@@ -4,9 +4,9 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { initializeDatabase } from "@/lib/db";
 import { items as itemsTable, profiles, claims as claimsTable, custody_logs } from "@/lib/schema";
-import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { getCurrentUser } from "@/lib/auth";
 import { notifyStatusChange } from "@/lib/notifications";
-import { eq, or } from "drizzle-orm";
+import { and, eq, or } from "drizzle-orm";
 import { randomUUID } from "crypto";
 
 const PickupSchema = z.object({
@@ -52,10 +52,7 @@ export async function verifyPickupCode(
     return { errors: parsed.error.flatten().fieldErrors };
   }
 
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   if (!user) {
     return { message: "You must be signed in to verify a code." };
@@ -122,7 +119,6 @@ export async function verifyPickupCode(
       .get();
 
     await notifyStatusChange({
-      supabase,
       userId: item.user_id,
       email: ownerProfile?.email,
       itemTitle: item.title,
@@ -158,10 +154,7 @@ export async function releaseHeldItem(
     return { errors: parsed.error.flatten().fieldErrors };
   }
 
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   if (!user) {
     return { message: "You must be signed in to release an item." };
@@ -209,9 +202,11 @@ export async function releaseHeldItem(
     })
     .from(claimsTable)
     .where(
-      eq(claimsTable.item_id, item.id) &&
-      eq(claimsTable.claimant_id, parsed.data.claimantId) &&
-      eq(claimsTable.status, "approved")
+      and(
+        eq(claimsTable.item_id, item.id),
+        eq(claimsTable.claimant_id, parsed.data.claimantId),
+        eq(claimsTable.status, "approved")
+      )
     )
     .get();
 
@@ -261,7 +256,6 @@ export async function releaseHeldItem(
 
     // Notify claimant
     await notifyStatusChange({
-      supabase,
       userId: approvedClaim.claimant_id,
       email: profileMap.get(approvedClaim.claimant_id) ?? null,
       itemTitle: item.title,
@@ -270,7 +264,6 @@ export async function releaseHeldItem(
 
     // Notify owner
     await notifyStatusChange({
-      supabase,
       userId: item.user_id,
       email: profileMap.get(item.user_id) ?? null,
       itemTitle: item.title,

@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { desc, inArray } from "drizzle-orm";
+import { initializeDatabase } from "@/lib/db";
+import { items as itemsTable } from "@/lib/schema";
 import { Item } from "@/lib/types";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -20,15 +22,27 @@ const STATUS_COLOR: Record<string, string> = {
 
 async function getRecentItems(): Promise<{ lost: Item[]; found: Item[]; now: number }> {
   try {
-    const supabase = await createSupabaseServerClient();
-    const { data } = await supabase
-      .from("items")
-      .select("id, title, category, location, status, created_at, image_url, description")
-      .in("status", ["lost", "found", "held_at_pickup"])
-      .order("created_at", { ascending: false })
+    const db = initializeDatabase();
+    const data = await db
+      .select({
+        id: itemsTable.id,
+        title: itemsTable.title,
+        category: itemsTable.category,
+        location: itemsTable.location,
+        status: itemsTable.status,
+        created_at: itemsTable.created_at,
+        image_url: itemsTable.image_url,
+        description: itemsTable.description,
+      })
+      .from(itemsTable)
+      .where(inArray(itemsTable.status, ["lost", "found", "held_at_pickup"] as const))
+      .orderBy(desc(itemsTable.created_at))
       .limit(12);
 
-    const items = (data ?? []) as Item[];
+    const items = (data ?? []).map((item) => ({
+      ...item,
+      created_at: item.created_at?.toISOString(),
+    })) as Item[];
     return {
       now: Date.now(),
       lost: items.filter((i) => i.status === "lost").slice(0, 6),
