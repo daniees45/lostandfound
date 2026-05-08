@@ -1,21 +1,43 @@
 "use client";
 
-import { useActionState } from "react";
+import { Suspense, useActionState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { updatePassword, type AuthState } from "@/app/actions/auth";
 
-export default function ResetPasswordPage() {
+function ResetPasswordForm() {
   const [state, action, pending] = useActionState<AuthState, FormData>(
     updatePassword,
     undefined
   );
+  const searchParams = useSearchParams();
+  const token = searchParams.get("token");
+
+  if (!token) {
+    return (
+      <>
+        <h1 className="text-2xl font-semibold">Invalid link</h1>
+        <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
+          This password reset link is missing or invalid.
+        </p>
+        <Link
+          href="/auth/forgot-password"
+          className="mt-4 inline-block text-sm font-medium text-sky-600 underline dark:text-sky-400"
+        >
+          Request a new reset link
+        </Link>
+      </>
+    );
+  }
 
   return (
-    <div className="mx-auto mt-20 w-full max-w-sm px-4">
+    <>
       <h1 className="text-2xl font-semibold">Set new password</h1>
       <p className="mt-1 text-sm text-sky-500">Valley View Lost &amp; Found</p>
 
       <form action={action} className="mt-5 space-y-4">
+        <input type="hidden" name="token" value={token} />
+
         <label className="block text-sm">
           <span className="mb-1 block">New password</span>
           <input
@@ -56,7 +78,7 @@ export default function ResetPasswordPage() {
           disabled={pending}
           className="w-full rounded-md bg-sky-600 py-2 text-sm text-white hover:bg-sky-700 disabled:opacity-60 dark:bg-sky-500 dark:hover:bg-sky-400"
         >
-          {pending ? "Updating password..." : "Update password"}
+          {pending ? "Updating password…" : "Update password"}
         </button>
 
         <p className="text-center text-sm text-sky-600 dark:text-sky-400">
@@ -68,6 +90,20 @@ export default function ResetPasswordPage() {
           </Link>
         </p>
       </form>
+    </>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <div className="mx-auto mt-20 w-full max-w-sm px-4">
+      <Suspense
+        fallback={
+          <p className="text-sm text-sky-500">Loading…</p>
+        }
+      >
+        <ResetPasswordForm />
+      </Suspense>
     </div>
   );
 }

@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useRef, useState } from "react";
 import { adminUpdateUserRole, adminDeleteClaim, type AdminActionState } from "@/app/actions/admin";
+import { ConfirmModal } from "@/components/confirm-modal";
 
 type Profile = {
   id: string;
@@ -61,23 +62,38 @@ function DeleteClaimButton({ claim }: { claim: Claim }) {
     adminDeleteClaim,
     undefined
   );
+  const [modalOpen, setModalOpen] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
 
   return (
-    <form action={action} className="inline">
-      <input type="hidden" name="claimId" value={claim.id} />
-      <button
-        disabled={pending}
-        className="rounded-md border border-rose-300 px-2 py-1 text-[11px] text-rose-700 hover:bg-rose-50 disabled:opacity-60 dark:border-rose-700 dark:text-rose-400 dark:hover:bg-rose-950"
-        onClick={(e) => {
-          if (!confirm("Delete this claim?")) e.preventDefault();
+    <>
+      <ConfirmModal
+        open={modalOpen}
+        title="Delete claim"
+        message="Are you sure you want to delete this claim? This action cannot be undone."
+        confirmLabel="Delete"
+        danger
+        onConfirm={() => {
+          setModalOpen(false);
+          formRef.current?.requestSubmit();
         }}
-      >
-        {pending ? "Deleting…" : "Delete"}
-      </button>
-      {state?.message && !state.success && (
-        <span className="ml-2 text-[11px] text-rose-600">{state.message}</span>
-      )}
-    </form>
+        onCancel={() => setModalOpen(false)}
+      />
+      <form ref={formRef} action={action} className="inline">
+        <input type="hidden" name="claimId" value={claim.id} />
+        <button
+          type="button"
+          disabled={pending}
+          className="rounded-md border border-rose-300 px-2 py-1 text-[11px] text-rose-700 hover:bg-rose-50 disabled:opacity-60 dark:border-rose-700 dark:text-rose-400 dark:hover:bg-rose-950"
+          onClick={() => setModalOpen(true)}
+        >
+          {pending ? "Deleting…" : "Delete"}
+        </button>
+        {state?.message && !state.success && (
+          <span className="ml-2 text-[11px] text-rose-600">{state.message}</span>
+        )}
+      </form>
+    </>
   );
 }
 

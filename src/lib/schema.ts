@@ -192,3 +192,65 @@ export const pickup_records = sqliteTable(
     ),
   })
 );
+
+// Password reset tokens table
+export const password_reset_tokens = sqliteTable(
+  "password_reset_tokens",
+  {
+    token_hash: text("token_hash").primaryKey(),
+    user_id: text("user_id")
+      .references(() => profiles.id, { onDelete: "cascade" })
+      .notNull(),
+    expires_at: integer("expires_at", { mode: "timestamp" }).notNull(),
+    created_at: integer("created_at", { mode: "timestamp" })
+      .default(sql`(unixepoch())`)
+      .notNull(),
+  },
+  (table) => ({
+    userIdx: index("prt_user_idx").on(table.user_id),
+  })
+);
+
+// Chat rooms table
+export const chat_rooms = sqliteTable(
+  "chat_rooms",
+  {
+    id: text("id").primaryKey(),
+    item_id: text("item_id").references(() => items.id, { onDelete: "cascade" }),
+    created_by: text("created_by").references(() => profiles.id, { onDelete: "set null" }),
+    created_at: integer("created_at", { mode: "timestamp" })
+      .default(sql`(unixepoch())`)
+      .notNull(),
+  },
+  (table) => ({
+    itemIdx: index("chat_rooms_item_idx").on(table.item_id),
+  })
+);
+
+// Chat messages table
+export const chat_messages = sqliteTable(
+  "chat_messages",
+  {
+    id: text("id").primaryKey(),
+    room_id: text("room_id")
+      .references(() => chat_rooms.id, { onDelete: "cascade" })
+      .notNull(),
+    sender_id: text("sender_id")
+      .references(() => profiles.id, { onDelete: "cascade" })
+      .notNull(),
+    body: text("body").notNull(),
+    created_at: integer("created_at", { mode: "timestamp" })
+      .default(sql`(unixepoch())`)
+      .notNull(),
+  },
+  (table) => ({
+    roomCreatedIdx: index("chat_messages_room_created_idx").on(
+      table.room_id,
+      table.created_at
+    ),
+    senderCreatedIdx: index("chat_messages_sender_created_idx").on(
+      table.sender_id,
+      table.created_at
+    ),
+  })
+);

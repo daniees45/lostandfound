@@ -1,11 +1,11 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { randomUUID } from "crypto";
+import { createHash, randomBytes, randomUUID } from "crypto";
 import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import { initializeDatabase } from "@/lib/db";
-import { profiles, user_credentials } from "@/lib/schema";
+import { profiles, user_credentials, password_reset_tokens } from "@/lib/schema";
 import {
   clearAuthSession,
   ensureAuthTables,
@@ -15,6 +15,11 @@ import {
   upsertUserCredentials,
   verifyPassword,
 } from "@/lib/auth";
+import {
+  sendEmail,
+  buildWelcomeEmail,
+  buildPasswordResetEmail,
+} from "@/lib/email";
 
 const LoginSchema = z.object({
   email: z.email(),
@@ -122,6 +127,11 @@ export async function signup(
 
     await upsertUserCredentials(userId, hashPassword(password));
     await setAuthSession(userId, normalizedEmail);
+
+    // Send welcome email (best-effort)
+    const appUrl = process.env.APP_URL ?? "http://localhost:3000";
+    const welcome = buildWelcomeEmail(fullName, `${appUrl}/auth/login`);
+    await sendEmail({ to: normalizedEmail, ...welcome });
   } catch (error) {
     console.error("Error creating account:", error);
     return { message: "Could not create account. Please try again." };
@@ -142,9 +152,39 @@ export async function requestPasswordReset(
     return { errors: parsed.error.flatten().fieldErrors };
   }
 
+  const db = initializeDatabase();
+  const user = await db
+    .select({ id: profiles.id, email: profiles.email })
+    .from(profiles)
+    .where(eq(profiles.email, parsed.data.email.toLowerCase()))
+    .get();
+
+  // Always return the same message to prevent user enumeration
+  if (user?.id && user.email) {
+    // Delete any existing tokens for this user
+    await db
+      .delete(password_reset_tokens)
+      .where(eq(password_reset_tokens.user_id, user.id));
+
+    const token = randomBytes(32).toString("hex");
+    const tokenHash = createHash("sha256").update(token).digest("hex");
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    await db.insert(password_reset_tokens).values({
+      token_hash: tokenHash,
+      user_id: user.id,
+      expires_at: expiresAt,
+    });
+
+    const appUrl = process.env.APP_URL ?? "http://localhost:3000";
+    const resetUrl = `${appUrl}/auth/reset-password?token=${token}`;
+    const emailPayload = buildPasswordResetEmail(resetUrl);
+    await sendEmail({ to: user.email, ...emailPayload });
+  }
+
   return {
     message:
-      "Password reset by email is disabled in Turso-only mode. Sign in and update your password from the reset page.",
+      "If an account with that email exists, a reset link has been sent. Check your inbox.",
   };
 }
 
@@ -169,26 +209,41 @@ export async function updatePassword(
     };
   }
 
-  const user = await getCurrentUser();
-
-  if (!user) {
+  const token = formData.get("token") as string | null;
+  if (!token) {
     return {
-      message: "You must be signed in to update your password.",
+      message:
+        "Missing reset token. Please request a new password reset link.",
     };
   }
 
+  const tokenHash = createHash("sha256").update(token).digest("hex");
   const db = initializeDatabase();
-  const profile = await db
-    .select({ id: profiles.id })
-    .from(profiles)
-    .where(and(eq(profiles.id, user.id), eq(profiles.email, user.email)))
+  const record = await db
+    .select()
+    .from(password_reset_tokens)
+    .where(eq(password_reset_tokens.token_hash, tokenHash))
     .get();
 
-  if (!profile?.id) {
-    return { message: "Account not found." };
+  if (!record) {
+    return {
+      message: "Invalid or expired reset link. Please request a new one.",
+    };
   }
 
-  await upsertUserCredentials(profile.id, hashPassword(parsed.data.password));
+  if (record.expires_at < new Date()) {
+    await db
+      .delete(password_reset_tokens)
+      .where(eq(password_reset_tokens.token_hash, tokenHash));
+    return {
+      message: "This reset link has expired. Please request a new one.",
+    };
+  }
+
+  await upsertUserCredentials(record.user_id, hashPassword(parsed.data.password));
+  await db
+    .delete(password_reset_tokens)
+    .where(eq(password_reset_tokens.token_hash, tokenHash));
 
   redirect("/auth/login?message=Password+updated.+Please+sign+in");
 }
