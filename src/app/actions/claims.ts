@@ -89,7 +89,7 @@ export async function createClaim(
       and(
         eq(claimsTable.item_id, item.id),
         eq(claimsTable.claimant_id, user.id),
-        inArray(claimsTable.status, ["pending", "approved"])
+        inArray(claimsTable.status, ["pending", "approved"] as const)
       )
     )
     .get();

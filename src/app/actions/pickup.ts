@@ -6,7 +6,7 @@ import { initializeDatabase } from "@/lib/db";
 import { items as itemsTable, profiles, claims as claimsTable, custody_logs } from "@/lib/schema";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { notifyStatusChange } from "@/lib/notifications";
-import { eq } from "drizzle-orm";
+import { eq, or } from "drizzle-orm";
 import { randomUUID } from "crypto";
 
 const PickupSchema = z.object({
@@ -249,7 +249,10 @@ export async function releaseHeldItem(
       })
       .from(profiles)
       .where(
-        profiles.id === item.user_id || profiles.id === approvedClaim.claimant_id
+        or(
+          eq(profiles.id, item.user_id),
+          eq(profiles.id, approvedClaim.claimant_id)
+        )
       );
 
     const profileMap = new Map(

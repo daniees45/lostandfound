@@ -7,7 +7,7 @@ import { Item } from "@/lib/types";
 import { signOut } from "@/app/actions/auth";
 import { reviewClaimAction } from "@/app/actions/claims";
 import { FlashBanner } from "@/components/flash-banner";
-import { eq, inArray, desc, limit } from "drizzle-orm";
+import { eq, inArray, desc } from "drizzle-orm";
 
 type PendingClaim = {
   id: string;
@@ -84,7 +84,10 @@ export default async function DashboardPage({
     .where(eq(itemsTable.user_id, user.id))
     .orderBy(desc(itemsTable.created_at));
 
-  const items = myItems as Item[];
+  const items = myItems.map(item => ({
+    ...item,
+    created_at: item.created_at?.toISOString()
+  })) as Item[];
 
   // Admin/pickup: fetch all items
   let allItems: Item[] = [];
@@ -102,7 +105,10 @@ export default async function DashboardPage({
       .from(itemsTable)
       .orderBy(desc(itemsTable.created_at))
       .limit(50);
-    allItems = allItemsData as Item[];
+    allItems = allItemsData.map(item => ({
+      ...item,
+      created_at: item.created_at?.toISOString()
+    })) as Item[];
   }
 
   const itemTitleById = new Map(items.map((item) => [item.id, item.title]));
@@ -127,9 +133,12 @@ export default async function DashboardPage({
       .orderBy(desc(claimsTable.created_at))
       .limit(30);
 
-    pendingClaims = (claims.filter((claim) => claim.status === "pending") ?? []) as PendingClaim[];
-
-    pendingClaims = (data ?? []) as PendingClaim[];
+    pendingClaims = (claims
+      .map(claim => ({
+        ...claim,
+        created_at: claim.created_at?.toISOString()
+      }))
+      .filter((claim) => claim.status === "pending") ?? []) as PendingClaim[];
   }
 
   return (

@@ -107,11 +107,14 @@ export default async function ItemsPage({
           image_url: itemsTable.image_url,
         })
         .from(itemsTable)
-        .where(inArray(itemsTable.status, ["found", "held_at_pickup", "claimed"]))
+        .where(inArray(itemsTable.status, ["found", "held_at_pickup", "claimed"] as const))
         .orderBy(desc(itemsTable.created_at));
 
       // Filter by query in application code (simple string matching)
-      searchItems = (allSearchItems as Item[]).filter((item) => {
+      searchItems = (allSearchItems.map(item => ({
+        ...item,
+        created_at: item.created_at?.toISOString()
+      })) as Item[]).filter((item) => {
         const searchableText = [
           item.title,
           item.description,
@@ -145,7 +148,10 @@ export default async function ItemsPage({
           .orderBy(desc(itemsTable.created_at))
           .limit(50);
 
-        const filteredOwn = (ownData as Item[]).filter((item) => {
+        const filteredOwn = (ownData.map(item => ({
+          ...item,
+          created_at: item.created_at?.toISOString()
+        })) as Item[]).filter((item) => {
           const searchableText = [
             item.title,
             item.description,
@@ -175,10 +181,13 @@ export default async function ItemsPage({
           image_url: itemsTable.image_url,
         })
         .from(itemsTable)
-        .where(inArray(itemsTable.status, ["found", "held_at_pickup", "claimed"]))
+        .where(inArray(itemsTable.status, ["found", "held_at_pickup", "claimed"] as const))
         .orderBy(desc(itemsTable.created_at));
 
-      items = (publicData as Item[]) ?? [];
+      items = (publicData.map(item => ({
+        ...item,
+        created_at: item.created_at?.toISOString()
+      })) as Item[]) ?? [];
 
       if (currentUserId) {
         const ownData = await db
@@ -199,12 +208,15 @@ export default async function ItemsPage({
           .orderBy(desc(itemsTable.created_at))
           .limit(50);
 
-        items = mergeUniqueById((ownData as Item[]) ?? [], items);
+        items = mergeUniqueById((ownData.map(item => ({
+          ...item,
+          created_at: item.created_at?.toISOString()
+        })) as Item[]) ?? [], items);
       }
     }
 
     if (currentUserId && items.length > 0) {
-      const myClaims = await db
+      const claimData = await db
         .select({
           item_id: claimsTable.item_id,
           status: claimsTable.status,
@@ -216,8 +228,9 @@ export default async function ItemsPage({
             items.map((item) => item.id)
           )
         );
-
-      for (const claim of myClaims ?? []) {
+      const claimStatusByItem = new Map<string, "pending" | "approved" | "rejected">();
+      
+      for (const claim of claimData ?? []) {
         claimStatusByItem.set(
           claim.item_id as string,
           claim.status as "pending" | "approved" | "rejected"

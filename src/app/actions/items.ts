@@ -212,8 +212,9 @@ export async function checkForSimilarItems(input: {
   const db = initializeDatabase();
 
   // Look for opposite-type items that might be a match
-  const searchStatuses =
-    input.status === "lost" ? ["found", "held_at_pickup"] : ["lost"];
+  const lostStatusArray = ["found", "held_at_pickup"] as const;
+  const foundStatusArray = ["lost"] as const;
+  const searchStatuses = input.status === "lost" ? lostStatusArray : foundStatusArray;
 
   const keywords = input.title
     .toLowerCase()
