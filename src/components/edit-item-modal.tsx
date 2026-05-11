@@ -1,7 +1,21 @@
 import { useState } from "react";
 import { updateOwnItem } from "@/app/actions/items";
 
-export default function EditItemModal({ item, isOpen, onClose, onSuccess }) {
+interface EditItemModalProps {
+  item: {
+    id: string;
+    title: string;
+    category: string;
+    description: string;
+    location: string;
+    status: string;
+  };
+  isOpen: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+export default function EditItemModal({ item, isOpen, onClose, onSuccess }: EditItemModalProps) {
   const [form, setForm] = useState({
     title: item.title,
     category: item.category,
@@ -10,14 +24,16 @@ export default function EditItemModal({ item, isOpen, onClose, onSuccess }) {
     status: item.status,
   });
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(null);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
-  const handleChange = (e) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);

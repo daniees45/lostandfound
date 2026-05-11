@@ -310,15 +310,21 @@ export function ChatRoom({
                 </option>
               ))}
             </select>
-            {itemId ? null : (
+            {itemId ? (
               <button
                 type="button"
-                onClick={() => setReferencedItemId(itemId)}
+                onClick={() => {
+                  if (itemId !== null) {
+                    setReferencedItemId(itemId);
+                  } else {
+                    console.warn("itemId is null and cannot be set.");
+                  }
+                }}
                 className="rounded-md border border-sky-300 px-3 py-2 text-xs hover:bg-sky-100 dark:border-sky-700 dark:hover:bg-sky-900"
               >
                 Reference this chat item
               </button>
-            )}
+            ) : null}
           </div>
           <div className="flex gap-2">
             <input

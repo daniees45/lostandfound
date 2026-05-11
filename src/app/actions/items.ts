@@ -291,3 +291,12 @@ export async function checkForSimilarItems(input: {
   return results; // Ensure the function always returns an array
 }
 
+// Ensure `apiCheckForSimilarItems` is exported
+export async function apiCheckForSimilarItems(input: {
+  title: string;
+  description: string;
+  status: "lost" | "found";
+}): Promise<Array<{ id: string; title: string; category: string; location: string; status: string }>> {
+  return checkForSimilarItems(input);
+}
+

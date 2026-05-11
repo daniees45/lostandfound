@@ -4,11 +4,18 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 
 export default function ReportPage() {
-  const [state, setState] = useState(null);
+  const [state, setState] = useState<any>(null);
   const [title, setTitle] = useState("");
-  const descRef = useRef(null);
+  const [isFound, setIsFound] = useState(false);
+  const [similarItems, setSimilarItems] = useState<any[]>([]);
+  const [checkingDuplicates, setCheckingDuplicates] = useState(false);
+  const [aiTags, setAiTags] = useState("");
+  const [pending, setPending] = useState(false);
+  const action = "/api/items/create";
+  const handleDescriptionChange = (val: string) => {};
+  const descRef = useRef<HTMLTextAreaElement>(null);
 
-  async function handleCreateItem(formData) {
+  async function handleCreateItem(formData: FormData) {
     const response = await fetch("/api/items/create", {
       method: "POST",
       body: formData,
