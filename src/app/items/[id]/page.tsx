@@ -1,4 +1,6 @@
 import Link from "next/link";
+import dynamic from "next/dynamic";
+import { useState } from "react";
 import { notFound, redirect } from "next/navigation";
 import { and, desc, eq, inArray, ne } from "drizzle-orm";
 import { submitClaimAction } from "@/app/actions/claims";
@@ -6,6 +8,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { initializeDatabase } from "@/lib/db";
 import { claims as claimsTable, items as itemsTable } from "@/lib/schema";
 import { Item } from "@/lib/types";
+const EditItemModal = dynamic(() => import("@/components/edit-item-modal"), { ssr: false });
 
 function badgeClass(status: Item["status"]) {
   switch (status) {
@@ -28,11 +31,10 @@ function formatDate(value?: string) {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString();
 }
 
-export default async function ItemDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default async function ItemDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  // ...existing code...
+  // Modal state for client
+  const [editOpen, setEditOpen] = useState(false);
   const { id } = await params;
   const user = await getCurrentUser();
   const db = initializeDatabase();
@@ -133,6 +135,22 @@ export default async function ItemDetailPage({
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 py-8">
+      {isOwner && (
+        <>
+          <button
+            className="mb-4 rounded bg-sky-600 text-white px-4 py-2 hover:bg-sky-700"
+            onClick={() => setEditOpen(true)}
+          >
+            Edit Item
+          </button>
+          <EditItemModal
+            item={item}
+            isOpen={editOpen}
+            onClose={() => setEditOpen(false)}
+            onSuccess={() => window.location.reload()}
+          />
+        </>
+      )}
           <div className="mb-4 flex flex-wrap items-center gap-2 text-sm text-sky-600 dark:text-sky-400">
         <Link href="/items" className="hover:underline">
           Browse items

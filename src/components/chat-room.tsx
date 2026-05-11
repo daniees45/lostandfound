@@ -235,7 +235,15 @@ export function ChatRoom({
           <div className="space-y-3">
             {messages.map((message) => {
               const own = message.senderId === currentUserId;
-              return (
+              const isSystem = message.body.startsWith("System:");
+              return isSystem ? (
+                <div key={message.id} className="flex justify-center">
+                  <div className="max-w-[75%] rounded-xl bg-gray-200 dark:bg-gray-800 px-3 py-2 text-xs italic text-gray-700 dark:text-gray-200 text-center">
+                    {message.body.replace(/^System:/, '').trim()}
+                    <p className="mt-1 text-[10px] opacity-70">{new Date(message.createdAt).toLocaleTimeString()}</p>
+                  </div>
+                </div>
+              ) : (
                 <div
                   key={message.id}
                   className={`flex ${own ? "justify-end" : "justify-start"}`}
@@ -293,6 +301,7 @@ export function ChatRoom({
               value={referencedItemId}
               onChange={(e) => setReferencedItemId(e.target.value)}
               className="rounded-md border border-sky-300 bg-white px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-sky-400 dark:border-sky-700 dark:bg-sky-950"
+              disabled={!!itemId}
             >
               <option value="">No referenced item</option>
               {availableItems.map((item) => (
@@ -301,7 +310,7 @@ export function ChatRoom({
                 </option>
               ))}
             </select>
-            {itemId ? (
+            {itemId ? null : (
               <button
                 type="button"
                 onClick={() => setReferencedItemId(itemId)}
@@ -309,7 +318,7 @@ export function ChatRoom({
               >
                 Reference this chat item
               </button>
-            ) : null}
+            )}
           </div>
           <div className="flex gap-2">
             <input

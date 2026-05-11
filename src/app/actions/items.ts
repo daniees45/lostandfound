@@ -1,8 +1,15 @@
-"use server";
-
+// Add ReportSchema definition for createItem
+const ReportSchema = z.object({
+  title: z.string().min(2),
+  category: z.string().min(1),
+  description: z.string().min(10),
+  location: z.string().min(2),
+  date: z.string().min(1),
+  status: z.enum(["lost", "found"]),
+});
 import { redirect } from "next/navigation";
 import { initializeDatabase } from "@/lib/db";
-import { items as itemsTable } from "@/lib/schema";
+import { items as itemsTable, chat_rooms, chat_messages } from "@/lib/schema";
 import { getCurrentUser } from "@/lib/auth";
 import { createUserProfile } from "@/lib/auth-turso";
 import {
@@ -17,17 +24,95 @@ import {
   generateItemSummary,
 } from "@/lib/ai-service-client";
 import { z } from "zod";
-import { inArray } from "drizzle-orm";
+import { inArray, eq, and } from "drizzle-orm";
 import { randomUUID } from "crypto";
 
-const ReportSchema = z.object({
+// Helper to get chat room id for an item
+function getRoomId(itemId: string) {
+  return `room_item_${itemId}`;
+}
+
+const UpdateOwnItemSchema = z.object({
+  itemId: z.string(),
   title: z.string().min(2),
   category: z.string().min(1),
   description: z.string().min(10),
   location: z.string().min(2),
-  date: z.string().min(1),
-  status: z.enum(["lost", "found"]),
+  status: z.enum(["lost", "found", "claimed", "returned", "held_at_pickup"]),
 });
+
+export async function updateOwnItem(
+  _state: ReportState,
+  formData: FormData
+): Promise<ReportState> {
+  const parsed = UpdateOwnItemSchema.safeParse({
+    itemId: formData.get("itemId"),
+    title: formData.get("title"),
+    category: formData.get("category"),
+    description: formData.get("description"),
+    location: formData.get("location"),
+    status: formData.get("status"),
+  });
+
+  if (!parsed.success) return { errors: parsed.error.flatten().fieldErrors };
+
+  const user = await getCurrentUser();
+  if (!user) return { message: "You must be signed in to edit an item." };
+
+  const db = initializeDatabase();
+  // Fetch current item for comparison
+  const item = await db
+    .select({ user_id: itemsTable.user_id, status: itemsTable.status, title: itemsTable.title })
+    .from(itemsTable)
+    .where(eq(itemsTable.id, parsed.data.itemId))
+    .get();
+  if (!item) return { message: "Item not found." };
+  if (item.user_id !== user.id) return { message: "You can only edit your own items." };
+
+  let statusChanged = false;
+  if (item.status !== parsed.data.status) {
+    statusChanged = true;
+  }
+
+  try {
+    await db
+      .update(itemsTable)
+      .set({
+        title: parsed.data.title,
+        category: parsed.data.category,
+        description: parsed.data.description,
+        location: parsed.data.location,
+        status: parsed.data.status,
+      })
+      .where(eq(itemsTable.id, parsed.data.itemId));
+
+    // Post system message if status changed
+    if (statusChanged) {
+      const roomId = getRoomId(parsed.data.itemId);
+      // Ensure chat room exists
+      await db.insert(chat_rooms).values({
+        id: roomId,
+        item_id: parsed.data.itemId,
+        created_by: user.id,
+      }).onConflictDoNothing();
+      // Insert system message
+      await db.insert(chat_messages).values({
+        id: `sysmsg_${randomUUID()}`,
+        room_id: roomId,
+        sender_id: user.id, // Could use a special system user if desired
+        body: `System: Status changed to '${parsed.data.status}' for item '${item.title}'.`,
+        referenced_item_id: parsed.data.itemId,
+        created_at: new Date(),
+      });
+    }
+  } catch (err) {
+    console.error("Error updating item:", err);
+    return { message: "Failed to update item." };
+  }
+
+  return { message: "Item updated successfully." };
+}
+
 
 export type ReportState =
   | { errors?: Record<string, string[]>; message?: string }
@@ -186,38 +271,18 @@ export async function checkForSimilarItems(input: {
   const foundStatusArray = ["lost"] as const;
   const searchStatuses = input.status === "lost" ? lostStatusArray : foundStatusArray;
 
-  const keywords = input.title
-    .toLowerCase()
-    .split(/\s+/)
-    .filter((w) => w.length > 3)
-    .slice(0, 4);
+  const results = await db
+    .select({ id: itemsTable.id, title: itemsTable.title, category: itemsTable.category, location: itemsTable.location, status: itemsTable.status })
+    .from(itemsTable)
+    .where(
+      and(
+        inArray(itemsTable.status, searchStatuses),
+        eq(itemsTable.title, input.title),
+        eq(itemsTable.description, input.description)
+      )
+    )
+    .limit(5);
 
-  if (keywords.length === 0) return [];
+  return results; // Ensure the function always returns an array
+} // Add the missing closing brace
 
-  try {
-    // Use LIKE for basic text matching in SQLite
-    // Get all items with matching status, then filter by keyword in application code
-    const results = await db
-      .select({
-        id: itemsTable.id,
-        title: itemsTable.title,
-        category: itemsTable.category,
-        location: itemsTable.location,
-        status: itemsTable.status,
-      })
-      .from(itemsTable)
-      .where(inArray(itemsTable.status, searchStatuses))
-      .limit(20);
-
-    // Filter by keywords in application code
-    const filtered = results.filter((item) => {
-      const titleLower = item.title.toLowerCase();
-      return keywords.some((k) => titleLower.includes(k));
-    });
-
-    return filtered.slice(0, 4);
-  } catch (err) {
-    console.error("Error checking for similar items:", err);
-    return [];
-  }
-}
