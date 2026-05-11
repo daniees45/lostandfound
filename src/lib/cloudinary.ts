@@ -1,3 +1,5 @@
+import { createHash } from "crypto";
+
 const CLOUDINARY_BASE = "https://api.cloudinary.com/v1_1";
 
 export const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
@@ -11,7 +13,66 @@ const ALLOWED_IMAGE_TYPES = new Set([
   "image/heif",
 ]);
 
-function getCloudinaryConfig() {
+type UnsignedCloudinaryConfig = {
+  mode: "unsigned";
+  cloudName: string;
+  uploadPreset: string;
+};
+
+type SignedCloudinaryConfig = {
+  mode: "signed";
+  cloudName: string;
+  apiKey: string;
+  apiSecret: string;
+};
+
+function parseCloudinaryUrl(rawUrl: string): SignedCloudinaryConfig | null {
+  try {
+    const parsed = new URL(rawUrl);
+    if (parsed.protocol !== "cloudinary:") {
+      return null;
+    }
+
+    const cloudName = parsed.hostname;
+    const apiKey = decodeURIComponent(parsed.username || "");
+    const apiSecret = decodeURIComponent(parsed.password || "");
+
+    if (!cloudName || !apiKey || !apiSecret) {
+      return null;
+    }
+
+    return {
+      mode: "signed",
+      cloudName,
+      apiKey,
+      apiSecret,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function buildCloudinarySignature(
+  params: Record<string, string>,
+  apiSecret: string
+) {
+  const serialized = Object.entries(params)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, value]) => `${key}=${value}`)
+    .join("&");
+
+  return createHash("sha1").update(`${serialized}${apiSecret}`).digest("hex");
+}
+
+function getCloudinaryConfig(): SignedCloudinaryConfig | UnsignedCloudinaryConfig | null {
+  const cloudinaryUrl = process.env.CLOUDINARY_URL;
+  if (cloudinaryUrl) {
+    const signed = parseCloudinaryUrl(cloudinaryUrl);
+    if (signed) {
+      return signed;
+    }
+  }
+
   const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
   const uploadPreset = process.env.CLOUDINARY_UPLOAD_PRESET;
 
@@ -19,7 +80,7 @@ function getCloudinaryConfig() {
     return null;
   }
 
-  return { cloudName, uploadPreset };
+  return { mode: "unsigned", cloudName, uploadPreset };
 }
 
 export function cloudinaryReady() {
@@ -66,7 +127,6 @@ export async function uploadImageToCloudinary(
 
   const body = new FormData();
   body.set("file", fileBlob, uploadName);
-  body.set("upload_preset", config.uploadPreset);
   body.set("folder", safeFolder);
   body.set("resource_type", "image");
   body.set("use_filename", "true");
@@ -74,6 +134,25 @@ export async function uploadImageToCloudinary(
   body.set("overwrite", "false");
   body.set("fetch_format", "auto");
   body.set("quality", "auto");
+
+  if (config.mode === "signed") {
+    const timestamp = String(Math.floor(Date.now() / 1000));
+    const signedParams = {
+      fetch_format: "auto",
+      folder: safeFolder,
+      overwrite: "false",
+      quality: "auto",
+      timestamp,
+      unique_filename: "true",
+      use_filename: "true",
+    };
+
+    body.set("api_key", config.apiKey);
+    body.set("timestamp", timestamp);
+    body.set("signature", buildCloudinarySignature(signedParams, config.apiSecret));
+  } else {
+    body.set("upload_preset", config.uploadPreset);
+  }
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 20_000);

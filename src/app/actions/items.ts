@@ -121,7 +121,7 @@ export async function createItem(
     if (!cloudinaryReady()) {
       return {
         message:
-          "Image upload is unavailable until Cloudinary is configured (CLOUDINARY_CLOUD_NAME + CLOUDINARY_UPLOAD_PRESET).",
+          "Image upload is unavailable until Cloudinary is configured (prefer CLOUDINARY_URL, or CLOUDINARY_CLOUD_NAME + CLOUDINARY_UPLOAD_PRESET).",
       };
     }
 

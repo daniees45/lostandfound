@@ -68,7 +68,7 @@ export async function updateProfile(
     if (!cloudinaryReady()) {
       return {
         message:
-          "Profile image upload requires Cloudinary setup (CLOUDINARY_CLOUD_NAME + CLOUDINARY_UPLOAD_PRESET).",
+          "Profile image upload requires Cloudinary setup (prefer CLOUDINARY_URL, or CLOUDINARY_CLOUD_NAME + CLOUDINARY_UPLOAD_PRESET).",
         success: false,
       };
     }
