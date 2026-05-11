@@ -1,60 +1,34 @@
 "use client";
 
-import { useActionState, useRef, useState, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { createItem, checkForSimilarItems, type ReportState } from "@/app/actions/items";
 
 export default function ReportPage() {
-  const [state, action, pending] = useActionState<ReportState, FormData>(
-    createItem,
-    undefined
-  );
-  const [isFound, setIsFound] = useState(false);
-  const descRef = useRef<HTMLTextAreaElement>(null);
-  const [aiTags, setAiTags] = useState("");
+  const [state, setState] = useState(null);
   const [title, setTitle] = useState("");
-  const [similarItems, setSimilarItems] = useState<
-    Array<{ id: string; title: string; category: string; location: string; status: string }>
-  >([]);
-  const [checkingDuplicates, setCheckingDuplicates] = useState(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const descRef = useRef(null);
 
-  // Debounced duplicate check whenever title changes
-  useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (title.trim().length < 4) {
-      setSimilarItems([]);
-      return;
-    }
-    debounceRef.current = setTimeout(async () => {
-      setCheckingDuplicates(true);
-      try {
-        const results = await checkForSimilarItems({
-          title,
-          description: descRef.current?.value ?? "",
-          status: isFound ? "found" : "lost",
-        });
-        setSimilarItems(results);
-      } finally {
-        setCheckingDuplicates(false);
-      }
-    }, 700);
+  async function handleCreateItem(formData) {
+    const response = await fetch("/api/items/create", {
+      method: "POST",
+      body: formData,
+    });
+    const result = await response.json();
+    setState(result);
+  }
 
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [title, isFound]);
-
-  function handleDescriptionChange(value: string) {
-    const tags: string[] = [];
-    if (/blue/i.test(value)) tags.push("Blue");
-    if (/black/i.test(value)) tags.push("Black");
-    if (/white/i.test(value)) tags.push("White");
-    if (/phone|iphone|android/i.test(value)) tags.push("Phone");
-    if (/bag|backpack|purse/i.test(value)) tags.push("Bag");
-    if (/wallet/i.test(value)) tags.push("Wallet");
-    if (/laptop|macbook|dell|hp/i.test(value)) tags.push("Laptop");
-    setAiTags(tags.join(", "));
+  async function handleCheckSimilarItems() {
+    const response = await fetch("/api/items/similar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title,
+        description: descRef.current?.value || "",
+        status: "lost",
+      }),
+    });
+    const similarItems = await response.json();
+    console.log(similarItems);
   }
 
   return (

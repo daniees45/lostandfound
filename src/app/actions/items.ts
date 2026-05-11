@@ -256,6 +256,11 @@ export async function createItem(
   redirect(`/dashboard?reportSuccess=1&reportMessage=${reportMessage}`);
 }
 
+// Extracted server-side logic for `createItem` and `checkForSimilarItems`
+export async function apiCreateItem(formData: FormData): Promise<ReportState> {
+  return createItem(undefined, formData);
+}
+
 // ── Similar item lookup (used for duplicate warning on report page) ─────────
 export async function checkForSimilarItems(input: {
   title: string;
@@ -284,5 +289,5 @@ export async function checkForSimilarItems(input: {
     .limit(5);
 
   return results; // Ensure the function always returns an array
-} // Add the missing closing brace
+}
 
