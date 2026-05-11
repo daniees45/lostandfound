@@ -132,16 +132,12 @@ export async function uploadImageToCloudinary(
   body.set("use_filename", "true");
   body.set("unique_filename", "true");
   body.set("overwrite", "false");
-  body.set("fetch_format", "auto");
-  body.set("quality", "auto");
 
   if (config.mode === "signed") {
     const timestamp = String(Math.floor(Date.now() / 1000));
     const signedParams = {
-      fetch_format: "auto",
       folder: safeFolder,
       overwrite: "false",
-      quality: "auto",
       timestamp,
       unique_filename: "true",
       use_filename: "true",
