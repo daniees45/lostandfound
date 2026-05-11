@@ -8,9 +8,24 @@ type ProfileFormProps = {
   email: string;
   avatarUrl: string | null;
   role: string;
+  preferredLanguage: "en" | "fr" | "es";
+  timezone: string;
+  digestFrequency: "instant" | "daily" | "weekly";
+  emailNotificationsEnabled: boolean;
+  inAppNotificationsEnabled: boolean;
 };
 
-export function ProfileForm({ fullName, email, avatarUrl, role }: ProfileFormProps) {
+export function ProfileForm({
+  fullName,
+  email,
+  avatarUrl,
+  role,
+  preferredLanguage,
+  timezone,
+  digestFrequency,
+  emailNotificationsEnabled,
+  inAppNotificationsEnabled,
+}: ProfileFormProps) {
   const [state, action, pending] = useActionState<ProfileState, FormData>(
     updateProfile,
     undefined
@@ -60,6 +75,72 @@ export function ProfileForm({ fullName, email, avatarUrl, role }: ProfileFormPro
           className="w-full rounded-md border border-sky-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-sky-400 dark:border-sky-700 dark:bg-sky-950"
         />
       </label>
+
+      <div className="rounded-md border border-sky-200 p-4 dark:border-sky-800">
+        <p className="text-sm font-medium">Notification and app settings</p>
+        <p className="mt-1 text-xs text-sky-600 dark:text-sky-400">
+          These preferences apply to all account roles, including student, admin, and pickup point access.
+        </p>
+
+        <div className="mt-3 grid gap-4 sm:grid-cols-2">
+          <label className="text-sm">
+            <span className="mb-1 block">Language</span>
+            <select
+              name="preferredLanguage"
+              defaultValue={preferredLanguage}
+              className="w-full rounded-md border border-sky-300 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-sky-400 dark:border-sky-700 dark:bg-sky-950"
+            >
+              <option value="en">English</option>
+              <option value="fr">French</option>
+              <option value="es">Spanish</option>
+            </select>
+          </label>
+
+          <label className="text-sm">
+            <span className="mb-1 block">Timezone</span>
+            <input
+              name="timezone"
+              defaultValue={timezone}
+              placeholder="UTC"
+              className="w-full rounded-md border border-sky-300 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-sky-400 dark:border-sky-700 dark:bg-sky-950"
+            />
+          </label>
+
+          <label className="text-sm">
+            <span className="mb-1 block">Digest frequency</span>
+            <select
+              name="digestFrequency"
+              defaultValue={digestFrequency}
+              className="w-full rounded-md border border-sky-300 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-sky-400 dark:border-sky-700 dark:bg-sky-950"
+            >
+              <option value="instant">Instant</option>
+              <option value="daily">Daily</option>
+              <option value="weekly">Weekly</option>
+            </select>
+          </label>
+        </div>
+
+        <div className="mt-3 space-y-2">
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              name="emailNotificationsEnabled"
+              value="1"
+              defaultChecked={emailNotificationsEnabled}
+            />
+            Email notifications
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              name="inAppNotificationsEnabled"
+              value="1"
+              defaultChecked={inAppNotificationsEnabled}
+            />
+            In-app notifications
+          </label>
+        </div>
+      </div>
 
       {avatarUrl ? (
         <label className="flex items-center gap-2 text-sm">

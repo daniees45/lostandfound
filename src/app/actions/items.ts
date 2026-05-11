@@ -2,10 +2,14 @@
 
 import { redirect } from "next/navigation";
 import { initializeDatabase } from "@/lib/db";
-import { profiles, items as itemsTable } from "@/lib/schema";
+import { items as itemsTable } from "@/lib/schema";
 import { getCurrentUser } from "@/lib/auth";
 import { createUserProfile } from "@/lib/auth-turso";
-import { cloudinaryReady, uploadImageToCloudinary } from "@/lib/cloudinary";
+import {
+  cloudinaryReady,
+  uploadImageToCloudinary,
+  validateImageUpload,
+} from "@/lib/cloudinary";
 import { suggestTagsAndCategory } from "@/lib/ai-tagging";
 import { generateEmbedding } from "@/lib/embeddings";
 import {
@@ -13,10 +17,8 @@ import {
   generateItemSummary,
 } from "@/lib/ai-service-client";
 import { z } from "zod";
-import { eq, inArray } from "drizzle-orm";
+import { inArray } from "drizzle-orm";
 import { randomUUID } from "crypto";
-
-const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 
 const ReportSchema = z.object({
   title: z.string().min(2),
@@ -56,12 +58,9 @@ export async function createItem(
   let uploadedImage: File | null = null;
 
   if (imageFile instanceof File && imageFile.size > 0) {
-    if (!imageFile.type.startsWith("image/")) {
-      return { message: "Uploaded file must be an image." };
-    }
-
-    if (imageFile.size > MAX_IMAGE_SIZE_BYTES) {
-      return { message: "Image must be 5MB or smaller." };
+    const validationError = validateImageUpload(imageFile);
+    if (validationError) {
+      return { message: validationError };
     }
 
     uploadedImage = imageFile;
@@ -115,8 +114,8 @@ export async function createItem(
   const embedding = await generateEmbedding(embeddingSource);
 
   let imageUrl: string | null = null;
-  let visionTags: string[] = [];
-  let visionCategory: string | null = null;
+  const visionTags: string[] = [];
+  const visionCategory: string | null = null;
 
   if (uploadedImage) {
     if (!cloudinaryReady()) {

@@ -18,6 +18,11 @@ export default async function ProfilePage() {
       email: profiles.email,
       avatar_url: profiles.avatar_url,
       role: profiles.role,
+      preferred_language: profiles.preferred_language,
+      timezone: profiles.timezone,
+      digest_frequency: profiles.digest_frequency,
+      email_notifications_enabled: profiles.email_notifications_enabled,
+      in_app_notifications_enabled: profiles.in_app_notifications_enabled,
     })
     .from(profiles)
     .where(eq(profiles.id, user.id))
@@ -36,6 +41,11 @@ export default async function ProfilePage() {
           email={profile?.email || user.email}
           avatarUrl={profile?.avatar_url || null}
           role={profile?.role || "student"}
+          preferredLanguage={profile?.preferred_language || "en"}
+          timezone={profile?.timezone || "UTC"}
+          digestFrequency={profile?.digest_frequency || "instant"}
+          emailNotificationsEnabled={profile?.email_notifications_enabled ?? true}
+          inAppNotificationsEnabled={profile?.in_app_notifications_enabled ?? true}
         />
       </div>
     </div>

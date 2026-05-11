@@ -3,13 +3,12 @@
 import { redirect } from "next/navigation";
 import { createHash, randomBytes, randomUUID } from "crypto";
 import { z } from "zod";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { initializeDatabase } from "@/lib/db";
 import { profiles, user_credentials, password_reset_tokens } from "@/lib/schema";
 import {
   clearAuthSession,
   ensureAuthTables,
-  getCurrentUser,
   hashPassword,
   setAuthSession,
   upsertUserCredentials,
@@ -20,9 +19,11 @@ import {
   buildWelcomeEmail,
   buildPasswordResetEmail,
 } from "@/lib/email";
-import { cloudinaryReady, uploadImageToCloudinary } from "@/lib/cloudinary";
-
-const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+import {
+  cloudinaryReady,
+  uploadImageToCloudinary,
+  validateImageUpload,
+} from "@/lib/cloudinary";
 
 const LoginSchema = z.object({
   email: z.email(),
@@ -109,12 +110,9 @@ export async function signup(
 
   let avatarUrl: string | null = null;
   if (avatarFile instanceof File && avatarFile.size > 0) {
-    if (!avatarFile.type.startsWith("image/")) {
-      return { message: "Profile image must be an image file." };
-    }
-
-    if (avatarFile.size > MAX_IMAGE_SIZE_BYTES) {
-      return { message: "Profile image must be 5MB or smaller." };
+    const validationError = validateImageUpload(avatarFile);
+    if (validationError) {
+      return { message: validationError };
     }
 
     if (!cloudinaryReady()) {

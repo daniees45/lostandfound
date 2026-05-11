@@ -1,11 +1,9 @@
 import { 
   text, 
-  blob,
   integer, 
   sqliteTable,
   primaryKey,
   index,
-  real,
 } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 
@@ -20,6 +18,23 @@ export const profiles = sqliteTable(
     email: text("email").unique(),
     full_name: text("full_name"),
     avatar_url: text("avatar_url"),
+    preferred_language: text("preferred_language").default("en").notNull(),
+    timezone: text("timezone").default("UTC").notNull(),
+    email_notifications_enabled: integer("email_notifications_enabled", {
+      mode: "boolean",
+    })
+      .default(true)
+      .notNull(),
+    in_app_notifications_enabled: integer("in_app_notifications_enabled", {
+      mode: "boolean",
+    })
+      .default(true)
+      .notNull(),
+    digest_frequency: text("digest_frequency", {
+      enum: ["instant", "daily", "weekly"],
+    })
+      .default("instant")
+      .notNull(),
     created_at: integer("created_at", { mode: "timestamp" })
       .default(sql`(unixepoch())`)
       .notNull(),

@@ -5,13 +5,24 @@ import { eq } from "drizzle-orm";
 import { initializeDatabase } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { profiles } from "@/lib/schema";
-import { cloudinaryReady, uploadImageToCloudinary } from "@/lib/cloudinary";
-
-const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+import {
+  cloudinaryReady,
+  uploadImageToCloudinary,
+  validateImageUpload,
+} from "@/lib/cloudinary";
 
 const ProfileSchema = z.object({
   fullName: z.string().trim().min(2, "Full name must be at least 2 characters."),
   removeAvatar: z.string().optional(),
+  preferredLanguage: z.enum(["en", "fr", "es"]).default("en"),
+  timezone: z
+    .string()
+    .trim()
+    .min(2, "Timezone is required.")
+    .max(64, "Timezone is too long."),
+  digestFrequency: z.enum(["instant", "daily", "weekly"]).default("instant"),
+  emailNotificationsEnabled: z.boolean(),
+  inAppNotificationsEnabled: z.boolean(),
 });
 
 export type ProfileState =
@@ -30,6 +41,11 @@ export async function updateProfile(
   const parsed = ProfileSchema.safeParse({
     fullName: formData.get("fullName"),
     removeAvatar: formData.get("removeAvatar"),
+    preferredLanguage: formData.get("preferredLanguage") ?? "en",
+    timezone: formData.get("timezone") ?? "UTC",
+    digestFrequency: formData.get("digestFrequency") ?? "instant",
+    emailNotificationsEnabled: formData.get("emailNotificationsEnabled") === "1",
+    inAppNotificationsEnabled: formData.get("inAppNotificationsEnabled") === "1",
   });
 
   if (!parsed.success) {
@@ -44,12 +60,9 @@ export async function updateProfile(
   }
 
   if (imageFile instanceof File && imageFile.size > 0) {
-    if (!imageFile.type.startsWith("image/")) {
-      return { message: "Avatar must be an image.", success: false };
-    }
-
-    if (imageFile.size > MAX_IMAGE_SIZE_BYTES) {
-      return { message: "Avatar must be 5MB or smaller.", success: false };
+    const validationError = validateImageUpload(imageFile);
+    if (validationError) {
+      return { message: validationError, success: false };
     }
 
     if (!cloudinaryReady()) {
@@ -73,6 +86,11 @@ export async function updateProfile(
     .update(profiles)
     .set({
       full_name: parsed.data.fullName,
+      preferred_language: parsed.data.preferredLanguage,
+      timezone: parsed.data.timezone,
+      digest_frequency: parsed.data.digestFrequency,
+      email_notifications_enabled: parsed.data.emailNotificationsEnabled,
+      in_app_notifications_enabled: parsed.data.inAppNotificationsEnabled,
       ...(avatarUrl !== undefined ? { avatar_url: avatarUrl } : {}),
     })
     .where(eq(profiles.id, user.id));

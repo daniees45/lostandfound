@@ -1,8 +1,9 @@
 import { randomUUID } from "crypto";
 import { sendEmail } from "@/lib/email";
 import { initializeDatabase } from "@/lib/db";
-import { notifications } from "@/lib/schema";
+import { notifications, profiles } from "@/lib/schema";
 import { prioritizeNotifications } from "@/lib/ai-service-client";
+import { eq } from "drizzle-orm";
 
 type NotifyStatusChangeInput = {
   userId: string;
@@ -19,6 +20,16 @@ async function logNotification(
   read = false
 ) {
   const db = initializeDatabase();
+  const userSettings = await db
+    .select({ inAppEnabled: profiles.in_app_notifications_enabled })
+    .from(profiles)
+    .where(eq(profiles.id, userId))
+    .get();
+
+  if (userSettings?.inAppEnabled === false) {
+    return;
+  }
+
   await db.insert(notifications).values({
     id: `notif_${randomUUID()}`,
     user_id: userId,
@@ -36,6 +47,18 @@ export async function notifyStatusChange({
   newStatus,
 }: NotifyStatusChangeInput) {
   const message = `Update: \"${itemTitle}\" is now marked as ${newStatus}.`;
+  const db = initializeDatabase();
+  const userSettings = await db
+    .select({
+      emailEnabled: profiles.email_notifications_enabled,
+      digestFrequency: profiles.digest_frequency,
+    })
+    .from(profiles)
+    .where(eq(profiles.id, userId))
+    .get();
+
+  const emailEnabled = userSettings?.emailEnabled !== false;
+  const digestFrequency = userSettings?.digestFrequency ?? "instant";
 
   // Determine notification priority before logging
   const prioritized = await prioritizeNotifications([
@@ -47,18 +70,29 @@ export async function notifyStatusChange({
   const priorityLabel =
     priorityScore >= 0.7 ? "[HIGH]" : priorityScore >= 0.4 ? "[NORMAL]" : "[LOW]";
 
-  const emailResult = await sendEmail({
-    to: email ?? "",
-    subject: "Lost & Found status update",
-    text: message,
-  });
-
-  if (emailResult === "sent") {
-    await logNotification(userId, "item_found", "Status update sent", message);
-  } else if (emailResult === "failed") {
-    await logNotification(userId, "item_found", "Status update failed", message);
+  if (!emailEnabled) {
+    await logNotification(userId, "item_found", "Email update skipped", "Email notifications are disabled in your settings.");
+  } else if (digestFrequency !== "instant") {
+    await logNotification(
+      userId,
+      "item_found",
+      "Email update queued",
+      `Email notifications are set to ${digestFrequency}. This update will be included in a digest.`
+    );
   } else {
-    await logNotification(userId, "item_found", "Status update queued", message);
+    const emailResult = await sendEmail({
+      to: email ?? "",
+      subject: "Lost & Found status update",
+      text: message,
+    });
+
+    if (emailResult === "sent") {
+      await logNotification(userId, "item_found", "Status update sent", message);
+    } else if (emailResult === "failed") {
+      await logNotification(userId, "item_found", "Status update failed", message);
+    } else {
+      await logNotification(userId, "item_found", "Status update queued", message);
+    }
   }
 
   // Only send SMS for normal/high priority notifications (score >= 0.4)

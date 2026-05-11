@@ -208,9 +208,7 @@ export function ChatRoom({
       <div className="rounded-2xl border border-sky-200 bg-white dark:border-sky-800 dark:bg-sky-950">
         <div className="border-b border-sky-200 px-5 py-4 dark:border-sky-800">
           <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">{title}</h1>
-          <p className="mt-1 text-xs text-sky-700 dark:text-sky-300">
-            Realtime polling every 2 seconds in Turso mode.
-          </p>
+          
           {chatAlert ? (
             <p className="mt-2 rounded-md bg-amber-100 px-2 py-1 text-xs text-amber-900">
               {chatAlert}
