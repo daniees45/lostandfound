@@ -16,6 +16,10 @@ export const profiles = sqliteTable(
       .default("student")
       .notNull(),
     email: text("email").unique(),
+    email_verified: integer("email_verified", { mode: "boolean" })
+      .default(false)
+      .notNull(),
+    email_verified_at: integer("email_verified_at", { mode: "timestamp" }),
     full_name: text("full_name"),
     avatar_url: text("avatar_url"),
     preferred_language: text("preferred_language").default("en").notNull(),
@@ -224,6 +228,24 @@ export const password_reset_tokens = sqliteTable(
   },
   (table) => ({
     userIdx: index("prt_user_idx").on(table.user_id),
+  })
+);
+
+// Email verification tokens table
+export const email_verification_tokens = sqliteTable(
+  "email_verification_tokens",
+  {
+    token_hash: text("token_hash").primaryKey(),
+    user_id: text("user_id")
+      .references(() => profiles.id, { onDelete: "cascade" })
+      .notNull(),
+    expires_at: integer("expires_at", { mode: "timestamp" }).notNull(),
+    created_at: integer("created_at", { mode: "timestamp" })
+      .default(sql`(unixepoch())`)
+      .notNull(),
+  },
+  (table) => ({
+    userIdx: index("evt_user_idx").on(table.user_id),
   })
 );
 

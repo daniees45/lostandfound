@@ -5,7 +5,11 @@ import { createHash, randomBytes, randomUUID } from "crypto";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { initializeDatabase } from "@/lib/db";
-import { profiles, user_credentials, password_reset_tokens } from "@/lib/schema";
+import {
+  profiles,
+  user_credentials,
+  password_reset_tokens,
+} from "@/lib/schema";
 import {
   clearAuthSession,
   ensureAuthTables,
@@ -16,9 +20,10 @@ import {
 } from "@/lib/auth";
 import {
   sendEmail,
-  buildWelcomeEmail,
+  buildEmailVerificationEmail,
   buildPasswordResetEmail,
 } from "@/lib/email";
+import { issueEmailVerificationToken } from "@/lib/email-verification";
 import {
   cloudinaryReady,
   uploadImageToCloudinary,
@@ -37,6 +42,10 @@ const SignupSchema = z.object({
 });
 
 const ForgotPasswordSchema = z.object({
+  email: z.email(),
+});
+
+const ResendVerificationSchema = z.object({
   email: z.email(),
 });
 
@@ -73,6 +82,7 @@ export async function login(
     .select({
       id: profiles.id,
       email: profiles.email,
+      email_verified: profiles.email_verified,
       password_hash: user_credentials.password_hash,
     })
     .from(profiles)
@@ -82,6 +92,13 @@ export async function login(
 
   if (!record?.id || !record.email || !verifyPassword(parsed.data.password, record.password_hash)) {
     return { message: "Invalid email or password." };
+  }
+
+  if (!record.email_verified) {
+    return {
+      message:
+        "Please verify your email before signing in. Use the resend verification option on this page.",
+    };
   }
 
   await setAuthSession(record.id, record.email);
@@ -149,29 +166,34 @@ export async function signup(
       id: userId,
       role: "student",
       email: normalizedEmail,
+      email_verified: false,
       full_name: fullName,
       avatar_url: avatarUrl,
     });
 
     await upsertUserCredentials(userId, hashPassword(password));
-    await setAuthSession(userId, normalizedEmail);
+    const verificationToken = await issueEmailVerificationToken(userId);
 
-    // Send welcome email (best-effort)
     const appUrl = process.env.APP_URL ?? "http://localhost:3000";
-    const welcome = buildWelcomeEmail(fullName, `${appUrl}/auth/login`);
-    await sendEmail({ to: normalizedEmail, ...welcome });
+    const verifyUrl = `${appUrl}/auth/verify-email/confirm?token=${verificationToken}`;
+    const verifyPayload = buildEmailVerificationEmail(verifyUrl);
+    await sendEmail({ to: normalizedEmail, ...verifyPayload });
   } catch (error) {
     console.error("Error creating account:", error);
     return { message: "Could not create account. Please try again." };
   }
 
-  redirect("/dashboard");
+  redirect(
+    "/auth/login?message=Account+created.+Check+your+email+to+verify+before+signing+in.&success=1"
+  );
 }
 
 export async function requestPasswordReset(
   _state: AuthState,
   formData: FormData
 ): Promise<AuthState> {
+  await ensureAuthTables();
+
   const parsed = ForgotPasswordSchema.safeParse({
     email: formData.get("email"),
   });
@@ -182,13 +204,17 @@ export async function requestPasswordReset(
 
   const db = initializeDatabase();
   const user = await db
-    .select({ id: profiles.id, email: profiles.email })
+    .select({
+      id: profiles.id,
+      email: profiles.email,
+      email_verified: profiles.email_verified,
+    })
     .from(profiles)
     .where(eq(profiles.email, parsed.data.email.toLowerCase()))
     .get();
 
   // Always return the same message to prevent user enumeration
-  if (user?.id && user.email) {
+  if (user?.id && user.email && user.email_verified) {
     // Delete any existing tokens for this user
     await db
       .delete(password_reset_tokens)
@@ -208,11 +234,57 @@ export async function requestPasswordReset(
     const resetUrl = `${appUrl}/auth/reset-password?token=${token}`;
     const emailPayload = buildPasswordResetEmail(resetUrl);
     await sendEmail({ to: user.email, ...emailPayload });
+  } else if (user?.id && user.email && !user.email_verified) {
+    const verificationToken = await issueEmailVerificationToken(user.id);
+    const appUrl = process.env.APP_URL ?? "http://localhost:3000";
+    const verifyUrl = `${appUrl}/auth/verify-email/confirm?token=${verificationToken}`;
+    const verifyPayload = buildEmailVerificationEmail(verifyUrl);
+    await sendEmail({ to: user.email, ...verifyPayload });
   }
 
   return {
     message:
       "If an account with that email exists, a reset link has been sent. Check your inbox.",
+  };
+}
+
+export async function resendVerificationEmail(
+  _state: AuthState,
+  formData: FormData
+): Promise<AuthState> {
+  await ensureAuthTables();
+
+  const parsed = ResendVerificationSchema.safeParse({
+    email: formData.get("email"),
+  });
+
+  if (!parsed.success) {
+    return { errors: parsed.error.flatten().fieldErrors };
+  }
+
+  const normalizedEmail = parsed.data.email.toLowerCase();
+  const db = initializeDatabase();
+  const user = await db
+    .select({
+      id: profiles.id,
+      email: profiles.email,
+      email_verified: profiles.email_verified,
+    })
+    .from(profiles)
+    .where(eq(profiles.email, normalizedEmail))
+    .get();
+
+  if (user?.id && user.email && !user.email_verified) {
+    const verificationToken = await issueEmailVerificationToken(user.id);
+    const appUrl = process.env.APP_URL ?? "http://localhost:3000";
+    const verifyUrl = `${appUrl}/auth/verify-email/confirm?token=${verificationToken}`;
+    const verifyPayload = buildEmailVerificationEmail(verifyUrl);
+    await sendEmail({ to: user.email, ...verifyPayload });
+  }
+
+  return {
+    message:
+      "If this account exists and is not yet verified, a verification email has been sent.",
   };
 }
 

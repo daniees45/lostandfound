@@ -72,7 +72,7 @@ export default function SignupPage() {
         </label>
 
         <p className="rounded-md bg-sky-100 px-3 py-2 text-sm text-sky-800 dark:bg-sky-900 dark:text-sky-200">
-          New accounts are created as <strong>student</strong>. Staff roles are assigned separately by an administrator.
+          New accounts are created as <strong>student</strong>. Staff roles are assigned separately by an administrator. You must verify your email before signing in.
         </p>
 
         {state?.message ? (

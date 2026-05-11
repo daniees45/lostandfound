@@ -28,6 +28,16 @@ export default async function ProfilePage() {
     .where(eq(profiles.id, user.id))
     .get();
 
+  const preferredLanguage =
+    profile?.preferred_language === "fr" || profile?.preferred_language === "es"
+      ? profile.preferred_language
+      : "en";
+
+  const digestFrequency =
+    profile?.digest_frequency === "daily" || profile?.digest_frequency === "weekly"
+      ? profile.digest_frequency
+      : "instant";
+
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-8">
       <h1 className="text-2xl font-semibold">Profile Settings</h1>
@@ -41,9 +51,9 @@ export default async function ProfilePage() {
           email={profile?.email || user.email}
           avatarUrl={profile?.avatar_url || null}
           role={profile?.role || "student"}
-          preferredLanguage={profile?.preferred_language || "en"}
+          preferredLanguage={preferredLanguage}
           timezone={profile?.timezone || "UTC"}
-          digestFrequency={profile?.digest_frequency || "instant"}
+          digestFrequency={digestFrequency}
           emailNotificationsEnabled={profile?.email_notifications_enabled ?? true}
           inAppNotificationsEnabled={profile?.in_app_notifications_enabled ?? true}
         />

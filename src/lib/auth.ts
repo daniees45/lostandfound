@@ -139,6 +139,41 @@ export async function ensureAuthTables() {
       FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE
     )
   `);
+  await db.run(`
+    CREATE TABLE IF NOT EXISTS password_reset_tokens (
+      token_hash TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      expires_at INTEGER NOT NULL,
+      created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+      FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE
+    )
+  `);
+  await db.run(`
+    CREATE TABLE IF NOT EXISTS email_verification_tokens (
+      token_hash TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      expires_at INTEGER NOT NULL,
+      created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+      FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE
+    )
+  `);
+
+  const columns = await db.run(`PRAGMA table_info(profiles)`);
+  const existing = new Set(
+    ((columns.rows ?? []) as Array<Record<string, unknown>>)
+      .map((row) => String(row.name ?? ""))
+      .filter(Boolean)
+  );
+
+  if (!existing.has("email_verified")) {
+    await db.run(
+      `ALTER TABLE profiles ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 0`
+    );
+  }
+
+  if (!existing.has("email_verified_at")) {
+    await db.run(`ALTER TABLE profiles ADD COLUMN email_verified_at INTEGER`);
+  }
 }
 
 export async function upsertUserCredentials(userId: string, passwordHash: string) {

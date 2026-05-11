@@ -116,6 +116,19 @@ export function buildPasswordResetEmail(resetUrl: string) {
   };
 }
 
+export function buildEmailVerificationEmail(verifyUrl: string) {
+  return {
+    subject: "Verify your Valley View Lost & Found email",
+    text: `Please verify your email address to activate your account.\n\nClick this link (valid for 24 hours):\n${verifyUrl}\n\nIf you did not create this account, you can ignore this message.`,
+    html: htmlWrap(`
+      <h2 style="margin:0 0 12px;color:#0f172a;font-size:20px">Verify your email</h2>
+      <p style="color:#475569;line-height:1.6">Confirm your email address to finish setting up your account.</p>
+      <a href="${verifyUrl}" style="display:inline-block;margin-top:20px;background:#0284c7;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px">Verify email</a>
+      <p style="margin-top:24px;color:#94a3b8;font-size:13px">This verification link expires in 24 hours.</p>
+    `),
+  };
+}
+
 export function buildClaimStatusEmail(
   claimantName: string,
   itemTitle: string,

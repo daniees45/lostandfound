@@ -74,6 +74,16 @@ function LoginForm() {
           </p>
         ) : null}
 
+        <p className="text-center text-sm text-sky-600 dark:text-sky-400">
+          Need to verify your email?{" "}
+          <Link
+            href="/auth/verify-email"
+            className="font-medium text-sky-700 underline dark:text-sky-300"
+          >
+            Resend verification link
+          </Link>
+        </p>
+
         <button
           disabled={pending}
           className="w-full rounded-md bg-sky-600 py-2 text-sm text-white hover:bg-sky-700 disabled:opacity-60 dark:bg-sky-500 dark:hover:bg-sky-400"
