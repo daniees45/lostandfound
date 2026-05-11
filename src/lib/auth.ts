@@ -174,6 +174,36 @@ export async function ensureAuthTables() {
   if (!existing.has("email_verified_at")) {
     await db.run(`ALTER TABLE profiles ADD COLUMN email_verified_at INTEGER`);
   }
+
+  if (!existing.has("preferred_language")) {
+    await db.run(
+      `ALTER TABLE profiles ADD COLUMN preferred_language TEXT NOT NULL DEFAULT 'en'`
+    );
+  }
+
+  if (!existing.has("timezone")) {
+    await db.run(
+      `ALTER TABLE profiles ADD COLUMN timezone TEXT NOT NULL DEFAULT 'UTC'`
+    );
+  }
+
+  if (!existing.has("email_notifications_enabled")) {
+    await db.run(
+      `ALTER TABLE profiles ADD COLUMN email_notifications_enabled INTEGER NOT NULL DEFAULT 1`
+    );
+  }
+
+  if (!existing.has("in_app_notifications_enabled")) {
+    await db.run(
+      `ALTER TABLE profiles ADD COLUMN in_app_notifications_enabled INTEGER NOT NULL DEFAULT 1`
+    );
+  }
+
+  if (!existing.has("digest_frequency")) {
+    await db.run(
+      `ALTER TABLE profiles ADD COLUMN digest_frequency TEXT NOT NULL DEFAULT 'instant'`
+    );
+  }
 }
 
 export async function upsertUserCredentials(userId: string, passwordHash: string) {
