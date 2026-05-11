@@ -1,5 +1,4 @@
 import Link from "next/link";
-import dynamic from "next/dynamic";
 import { useState } from "react";
 import { notFound, redirect } from "next/navigation";
 import { and, desc, eq, inArray, ne } from "drizzle-orm";
@@ -8,7 +7,9 @@ import { getCurrentUser } from "@/lib/auth";
 import { initializeDatabase } from "@/lib/db";
 import { claims as claimsTable, items as itemsTable } from "@/lib/schema";
 import { Item } from "@/lib/types";
-const EditItemModal = dynamic(() => import("@/components/edit-item-modal"), { ssr: false });
+import ClientEditItemModal from "@/components/ClientEditItemModal";
+
+const EditItemModal = ClientEditItemModal;
 
 function badgeClass(status: Item["status"]) {
   switch (status) {
@@ -32,7 +33,6 @@ function formatDate(value?: string) {
 }
 
 export default async function ItemDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  // ...existing code...
   // Modal state for client
   const [editOpen, setEditOpen] = useState(false);
   const { id } = await params;
