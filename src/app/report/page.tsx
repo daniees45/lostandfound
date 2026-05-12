@@ -17,7 +17,7 @@ export default function ReportPage() {
 
   async function handleCreateItem(formData: FormData) {
     const response = await fetch("/api/items/create", {
-      method: "POST",
+      method: "POST", // Ensure POST method is used
       body: formData,
     });
     const result = await response.json();
