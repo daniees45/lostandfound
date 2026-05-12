@@ -198,7 +198,11 @@ export default async function DashboardPage({
                     key={item.id}
                     className="border-b border-sky-100 last:border-0 hover:bg-sky-50 dark:border-sky-900 dark:hover:bg-sky-950"
                   >
-                    <td className="px-4 py-2 font-medium">{item.title}</td>
+                    <td className="px-4 py-2 font-medium">
+                      <Link href={`/items/${item.id}`} className="hover:underline">
+                        {item.title}
+                      </Link>
+                    </td>
                     <td className="px-4 py-2 text-sky-700 dark:text-sky-300">
                       {item.category}
                     </td>

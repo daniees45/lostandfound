@@ -51,5 +51,5 @@ export default async function ItemDetailPage({ params }: { params: Promise<{ id:
     created_at: item.created_at.toISOString(), // Convert Date to string
   };
 
-  return <ItemDetailClient item={adjustedItem} />;
+  return <ItemDetailClient item={adjustedItem} currentUserId={user?.id} />;
 }
