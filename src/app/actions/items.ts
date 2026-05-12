@@ -1,3 +1,5 @@
+"use server";
+
 // Add ReportSchema definition for createItem
 const ReportSchema = z.object({
   title: z.string().min(2),

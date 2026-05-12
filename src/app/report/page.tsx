@@ -1,42 +1,44 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useActionState } from "react";
+import { createItem, checkForSimilarItems } from "@/app/actions/items";
 import Link from "next/link";
 
 export default function ReportPage() {
-  const [state, setState] = useState<any>(null);
+  const [state, formAction, isPending] = useActionState(createItem, undefined);
   const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
   const [isFound, setIsFound] = useState(false);
   const [similarItems, setSimilarItems] = useState<any[]>([]);
   const [checkingDuplicates, setCheckingDuplicates] = useState(false);
   const [aiTags, setAiTags] = useState("");
-  const [pending, setPending] = useState(false);
-  const action = "/api/items/create";
-  const handleDescriptionChange = (val: string) => {};
   const descRef = useRef<HTMLTextAreaElement>(null);
 
-  async function handleCreateItem(formData: FormData) {
-    const response = await fetch("/api/items/create", {
-      method: "POST", // Ensure POST method is used
-      body: formData,
-    });
-    const result = await response.json();
-    setState(result);
-  }
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      if (title.length > 3 || description.length > 5) {
+        setCheckingDuplicates(true);
+        try {
+          const results = await checkForSimilarItems({
+            title,
+            description,
+            status: isFound ? "found" : "lost",
+          });
+          setSimilarItems(results);
+        } catch (err) {
+          console.error("Duplicate check failed:", err);
+        } finally {
+          setCheckingDuplicates(false);
+        }
+      } else {
+        setSimilarItems([]);
+      }
+    }, 800);
 
-  async function handleCheckSimilarItems() {
-    const response = await fetch("/api/items/similar", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title,
-        description: descRef.current?.value || "",
-        status: "lost",
-      }),
-    });
-    const similarItems = await response.json();
-    console.log(similarItems);
-  }
+    return () => clearTimeout(timer);
+  }, [title, description, isFound]);
+
+
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-8">
@@ -46,7 +48,8 @@ export default function ReportPage() {
       </p>
 
       <form
-        action={action}
+        action={formAction}
+        method="POST"
         className="mt-6 space-y-4 rounded-xl border border-sky-200 bg-white p-5 dark:border-sky-800 dark:bg-sky-950"
       >
         {/* hidden isFoundItem flag submitted as string */}
@@ -123,7 +126,8 @@ export default function ReportPage() {
             name="description"
             rows={4}
             required
-            onChange={(e) => handleDescriptionChange(e.target.value)}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
             placeholder="Include identifiable details: color, brand, unique marks"
             className="w-full rounded-md border border-sky-300 bg-white px-3 py-2 outline-none focus:ring-2 focus:ring-sky-400 dark:border-sky-700 dark:bg-sky-950"
           />
@@ -194,10 +198,10 @@ export default function ReportPage() {
         ) : null}
 
         <button
-          disabled={pending}
+          disabled={isPending}
           className="rounded-md bg-sky-600 px-4 py-2 text-sm text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-sky-500 dark:hover:bg-sky-400"
         >
-          {pending ? "Submitting…" : "Submit report"}
+          {isPending ? "Submitting…" : "Submit report"}
         </button>
       </form>
     </div>
