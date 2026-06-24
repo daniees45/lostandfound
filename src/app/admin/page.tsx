@@ -3,8 +3,10 @@ import Link from "next/link";
 import { desc, eq } from "drizzle-orm";
 import { getCurrentUser } from "@/lib/auth";
 import { initializeDatabase } from "@/lib/db";
+import { getSiteLogoUrl } from "@/lib/app-settings";
 import { claims as claimsTable, items as itemsTable, profiles } from "@/lib/schema";
 import { Item } from "@/lib/types";
+import { AdminLogoSettings } from "@/components/admin-logo-settings";
 import { AdminItemsTable } from "@/components/admin-items-table";
 import { AdminUsersTable, AdminClaimsTable } from "@/components/admin-users-table";
 import { AdminCopilot } from "@/components/admin-copilot";
@@ -43,7 +45,8 @@ export default async function AdminPage() {
 
   if (profile?.role !== "admin") redirect("/dashboard");
 
-  const [itemsData, usersData, claimsRaw] = await Promise.all([
+  const [logoUrl, itemsData, usersData, claimsRaw] = await Promise.all([
+    getSiteLogoUrl(),
     db
       .select({
         id: itemsTable.id,
@@ -147,6 +150,8 @@ export default async function AdminPage() {
 
       {/* AI Admin Copilot */}
       <AdminCopilot stats={{ items: items.length, users: users.length, claims: claims.length }} />
+
+      <AdminLogoSettings currentLogoUrl={logoUrl} />
 
       {/* Items CRUD */}
       <section className="mb-10">

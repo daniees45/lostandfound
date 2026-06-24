@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { and, eq, gt, isNull, ne, or } from "drizzle-orm";
 import { getCurrentUser } from "@/lib/auth";
+import { getSiteLogoUrl } from "@/lib/app-settings";
 import { initializeDatabase } from "@/lib/db";
 import { chat_messages, chat_reads, notifications, profiles } from "@/lib/schema";
 import { signOut } from "@/app/actions/auth";
@@ -25,6 +26,7 @@ export async function AppNav() {
   let unreadChat = 0;
   let userRole: string | null = null;
   let avatarUrl: string | null = null;
+  const siteLogoUrl = await getSiteLogoUrl();
 
   try {
     user = await getCurrentUser();
@@ -68,8 +70,14 @@ export async function AppNav() {
   return (
     <header className="border-b border-sky-700 bg-sky-600 shadow-sm dark:border-sky-900 dark:bg-sky-900">
       <nav className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">
-        <Link href="/" className="text-sm font-semibold tracking-wide text-white">
-          VVU Lost &amp; Found
+        <Link href="/" className="flex items-center gap-2 text-sm font-semibold tracking-wide text-white">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={siteLogoUrl}
+            alt="Valley View University"
+            className="h-8 w-8 rounded-md bg-white object-contain p-0.5"
+          />
+          <span>VVU Lost &amp; Found</span>
         </Link>
         <ul className="flex flex-wrap items-center gap-2 text-sm">
           {publicLinks.map((link) => (

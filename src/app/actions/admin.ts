@@ -4,6 +4,12 @@ import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth";
 import { initializeDatabase } from "@/lib/db";
 import { profiles, items as itemsTable, claims as claimsTable } from "@/lib/schema";
+import { setSiteLogoUrl } from "@/lib/app-settings";
+import {
+  cloudinaryReady,
+  uploadImageToCloudinary,
+  validateImageUpload,
+} from "@/lib/cloudinary";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
 
@@ -170,4 +176,57 @@ export async function adminDeleteClaim(
 
   revalidatePath("/admin");
   return { success: true, message: "Claim deleted." };
+}
+
+// ── branding ─────────────────────────────────────────────────────────────────
+
+export async function adminUpdateLogo(
+  _state: AdminActionState,
+  formData: FormData
+): Promise<AdminActionState> {
+  const { error: authError } = await assertAdmin();
+  if (authError) return { message: authError };
+
+  const resetToDefault = formData.get("resetToDefault") === "1";
+  if (resetToDefault) {
+    try {
+      await setSiteLogoUrl(null);
+    } catch (err) {
+      console.error("Error resetting logo:", err);
+      return { message: "Failed to reset logo." };
+    }
+
+    revalidatePath("/");
+    revalidatePath("/admin");
+    return { success: true, message: "Logo reset to default." };
+  }
+
+  const logoFile = formData.get("logo");
+  if (!(logoFile instanceof File) || logoFile.size <= 0) {
+    return { message: "Please choose an image file to upload." };
+  }
+
+  const validationError = validateImageUpload(logoFile);
+  if (validationError) {
+    return { message: validationError };
+  }
+
+  if (!cloudinaryReady()) {
+    return {
+      message:
+        "Logo upload requires Cloudinary setup (prefer CLOUDINARY_URL, or CLOUDINARY_CLOUD_NAME + CLOUDINARY_UPLOAD_PRESET).",
+    };
+  }
+
+  try {
+    const logoUrl = await uploadImageToCloudinary(logoFile, "lost-found-system/branding");
+    await setSiteLogoUrl(logoUrl);
+  } catch (err) {
+    console.error("Error uploading logo:", err);
+    return { message: "Failed to upload logo." };
+  }
+
+  revalidatePath("/");
+  revalidatePath("/admin");
+  return { success: true, message: "Logo updated." };
 }
