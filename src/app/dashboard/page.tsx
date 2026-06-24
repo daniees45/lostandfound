@@ -13,10 +13,38 @@ type PendingClaim = {
   id: string;
   item_id: string;
   claimant_id: string;
+  claimant_name: string;
+  claimant_email: string;
   proof_description?: string | null;
+  credibility_score?: number | null;
+  clean_proof_description?: string | null;
   created_at?: string;
   status: "pending" | "approved" | "rejected";
 };
+
+function parseClaimProof(proof?: string | null): {
+  cleanProof: string | null;
+  credibilityScore: number | null;
+} {
+  if (!proof) {
+    return {
+      cleanProof: null,
+      credibilityScore: null,
+    };
+  }
+
+  const scoreMatch = proof.match(/\[AI credibility score:\s*([0-9]+(?:\.[0-9]+)?)\]/i);
+  const credibilityScore = scoreMatch ? Number.parseFloat(scoreMatch[1]) : null;
+  const cleanProof = proof
+    .replace(/\n?\[AI credibility score:[^\]]+\]/gi, "")
+    .replace(/\n?\[AI evidence prompts:[^\]]+\]/gi, "")
+    .trim();
+
+  return {
+    cleanProof: cleanProof.length > 0 ? cleanProof : null,
+    credibilityScore: Number.isFinite(credibilityScore) ? credibilityScore : null,
+  };
+}
 
 function statusBadge(status: Item["status"]) {
   const map: Record<string, string> = {
@@ -115,11 +143,14 @@ export default async function DashboardPage({
         id: claimsTable.id,
         item_id: claimsTable.item_id,
         claimant_id: claimsTable.claimant_id,
+        claimant_name: profiles.full_name,
+        claimant_email: profiles.email,
         proof_description: claimsTable.proof_description,
         created_at: claimsTable.created_at,
         status: claimsTable.status,
       })
       .from(claimsTable)
+      .innerJoin(profiles, eq(claimsTable.claimant_id, profiles.id))
       .where(
         inArray(
           claimsTable.item_id,
@@ -130,10 +161,17 @@ export default async function DashboardPage({
       .limit(30);
 
     pendingClaims = (claims
-      .map(claim => ({
-        ...claim,
-        created_at: claim.created_at?.toISOString()
-      }))
+      .map((claim) => {
+        const parsedProof = parseClaimProof(claim.proof_description);
+        return {
+          ...claim,
+          claimant_name: claim.claimant_name ?? "Unknown claimant",
+          claimant_email: claim.claimant_email ?? "No email",
+          clean_proof_description: parsedProof.cleanProof,
+          credibility_score: parsedProof.credibilityScore,
+          created_at: claim.created_at?.toISOString(),
+        };
+      })
       .filter((claim) => claim.status === "pending") ?? []) as PendingClaim[];
   }
 
@@ -257,14 +295,25 @@ export default async function DashboardPage({
                   <strong>Item:</strong> {itemTitleById.get(claim.item_id) ?? claim.item_id}
                 </p>
                 <p className="mt-1 text-sm text-sky-700 dark:text-sky-300">
-                  <strong>Claimant:</strong> {claim.claimant_id}
+                  <strong>Claimant:</strong> {claim.claimant_name} ({claim.claimant_email})
                 </p>
-                {claim.proof_description ? (
+                {claim.credibility_score != null ? (
                   <p className="mt-1 text-sm text-sky-700 dark:text-sky-300">
-                    <strong>Proof:</strong> {claim.proof_description}
+                    <strong>Credibility score:</strong> {claim.credibility_score.toFixed(2)}
+                  </p>
+                ) : null}
+                {claim.clean_proof_description ? (
+                  <p className="mt-1 text-sm text-sky-700 dark:text-sky-300">
+                    <strong>Proof:</strong> {claim.clean_proof_description}
                   </p>
                 ) : null}
                 <div className="mt-3 flex gap-2">
+                  <Link
+                    href={`/chat?claimId=${claim.id}`}
+                    className="rounded-md border border-sky-300 px-3 py-1.5 text-xs hover:bg-sky-100 dark:border-sky-700 dark:hover:bg-sky-900"
+                  >
+                    Chat claimant
+                  </Link>
                   <form action={reviewClaimAction}>
                     <input type="hidden" name="claimId" value={claim.id} />
                     <input type="hidden" name="decision" value="approved" />

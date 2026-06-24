@@ -4,6 +4,7 @@ import { and, desc, eq, gt, ne } from "drizzle-orm";
 import { getCurrentUser } from "@/lib/auth";
 import { initializeDatabase } from "@/lib/db";
 import {
+  claims,
   chat_messages,
   chat_reads,
   chat_rooms,
@@ -12,8 +13,46 @@ import {
   profiles,
 } from "@/lib/schema";
 
-function getRoomId(itemId: string | null) {
-  return itemId ? `room_item_${itemId}` : "room_lobby";
+async function resolveRoomContext(params: {
+  db: ReturnType<typeof initializeDatabase>;
+  userId: string;
+  itemId: string | null;
+  claimId: string | null;
+}) {
+  const { db, userId, itemId, claimId } = params;
+
+  if (claimId) {
+    const claim = await db
+      .select({
+        id: claims.id,
+        item_id: claims.item_id,
+        claimant_id: claims.claimant_id,
+        item_owner_id: items.user_id,
+      })
+      .from(claims)
+      .innerJoin(items, eq(claims.item_id, items.id))
+      .where(eq(claims.id, claimId))
+      .get();
+
+    if (!claim) {
+      return { error: "Claim not found", status: 404 as const };
+    }
+
+    const canAccessClaimChat = userId === claim.claimant_id || userId === claim.item_owner_id;
+    if (!canAccessClaimChat) {
+      return { error: "Forbidden", status: 403 as const };
+    }
+
+    return {
+      roomId: `room_claim_${claim.id}`,
+      roomItemId: claim.item_id,
+    };
+  }
+
+  return {
+    roomId: itemId ? `room_item_${itemId}` : "room_lobby",
+    roomItemId: itemId,
+  };
 }
 
 export async function GET(request: NextRequest) {
@@ -23,14 +62,27 @@ export async function GET(request: NextRequest) {
   }
 
   const itemId = request.nextUrl.searchParams.get("itemId");
-  const roomId = getRoomId(itemId);
+  const claimId = request.nextUrl.searchParams.get("claimId");
   const db = initializeDatabase();
+
+  const roomContext = await resolveRoomContext({
+    db,
+    userId: user.id,
+    itemId,
+    claimId,
+  });
+
+  if ("error" in roomContext) {
+    return NextResponse.json({ error: roomContext.error }, { status: roomContext.status });
+  }
+
+  const roomId = roomContext.roomId;
 
   await db
     .insert(chat_rooms)
     .values({
       id: roomId,
-      item_id: itemId,
+      item_id: roomContext.roomItemId,
       created_by: user.id,
     })
     .onConflictDoNothing();
@@ -109,11 +161,17 @@ export async function POST(request: NextRequest) {
   }
 
   const payload = await request.json().catch(() => null) as
-    | { itemId?: string | null; message?: string; referencedItemId?: string | null }
+    | {
+        itemId?: string | null;
+        claimId?: string | null;
+        message?: string;
+        referencedItemId?: string | null;
+      }
     | null;
 
   const message = payload?.message?.trim();
   const itemId = payload?.itemId?.trim() || null;
+  const claimId = payload?.claimId?.trim() || null;
   const referencedItemId = payload?.referencedItemId?.trim() || null;
 
   if (!message) {
@@ -125,6 +183,17 @@ export async function POST(request: NextRequest) {
   }
 
   const db = initializeDatabase();
+
+  const roomContext = await resolveRoomContext({
+    db,
+    userId: user.id,
+    itemId,
+    claimId,
+  });
+
+  if ("error" in roomContext) {
+    return NextResponse.json({ error: roomContext.error }, { status: roomContext.status });
+  }
 
   if (itemId) {
     const item = await db
@@ -150,13 +219,13 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const roomId = getRoomId(itemId);
+  const roomId = roomContext.roomId;
 
   await db
     .insert(chat_rooms)
     .values({
       id: roomId,
-      item_id: itemId,
+      item_id: roomContext.roomItemId,
       created_by: user.id,
     })
     .onConflictDoNothing();

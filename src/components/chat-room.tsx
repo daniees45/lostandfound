@@ -20,6 +20,8 @@ type TypingUser = {
 type ChatRoomProps = {
   currentUserId: string;
   itemId: string | null;
+  claimId?: string | null;
+  claimChatTitle?: string;
   itemTitle?: string;
   initialReferencedItemId?: string | null;
   initialReferencedItemTitle?: string;
@@ -29,6 +31,8 @@ type ChatRoomProps = {
 export function ChatRoom({
   currentUserId,
   itemId,
+  claimId,
+  claimChatTitle,
   itemTitle,
   initialReferencedItemId,
   initialReferencedItemTitle,
@@ -49,9 +53,10 @@ export function ChatRoom({
   const typingPulseRef = useRef(0);
 
   const title = useMemo(() => {
+    if (claimChatTitle) return claimChatTitle;
     if (itemTitle) return `Item chat: ${itemTitle}`;
     return "General Lost & Found chat";
-  }, [itemTitle]);
+  }, [claimChatTitle, itemTitle]);
 
   const sendTypingStatus = useCallback(
     async (typing: boolean) => {
@@ -61,13 +66,13 @@ export function ChatRoom({
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ itemId, typing }),
+            body: JSON.stringify({ itemId, claimId, typing }),
         });
       } catch {
         // best effort only
       }
     },
-    [itemId]
+      [claimId, itemId]
   );
 
   const maybeNotify = useCallback((titleText: string, body: string) => {
@@ -80,6 +85,7 @@ export function ChatRoom({
   const fetchMessages = useCallback(async () => {
     const params = new URLSearchParams();
     if (itemId) params.set("itemId", itemId);
+    if (claimId) params.set("claimId", claimId);
     const url = `/api/chat/messages${params.toString() ? `?${params.toString()}` : ""}`;
 
     try {
@@ -119,7 +125,7 @@ export function ChatRoom({
     } finally {
       setLoading(false);
     }
-  }, [currentUserId, itemId, maybeNotify]);
+  }, [claimId, currentUserId, itemId, maybeNotify]);
 
   const fetchRandomItemAlert = useCallback(async () => {
     try {
@@ -184,6 +190,7 @@ export function ChatRoom({
         },
         body: JSON.stringify({
           itemId,
+          claimId,
           message,
           referencedItemId: referencedItemId || null,
         }),

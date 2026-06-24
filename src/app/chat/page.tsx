@@ -2,13 +2,14 @@ import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { getCurrentUser } from "@/lib/auth";
 import { initializeDatabase } from "@/lib/db";
-import { items } from "@/lib/schema";
+import { claims, items } from "@/lib/schema";
 import { ChatRoom } from "@/components/chat-room";
 
 type ChatPageProps = {
   searchParams: Promise<{
     itemId?: string;
     refItemId?: string;
+    claimId?: string;
   }>;
 };
 
@@ -19,10 +20,40 @@ export default async function ChatPage({ searchParams }: ChatPageProps) {
   }
 
   const params = await searchParams;
-  const itemId = params.itemId?.trim() || null;
-  const refItemId = params.refItemId?.trim() || itemId;
+  let itemId = params.itemId?.trim() || null;
+  const claimId = params.claimId?.trim() || null;
+  let refItemId = params.refItemId?.trim() || itemId;
 
   const db = initializeDatabase();
+
+  let claimChatTitle: string | undefined;
+  if (claimId) {
+    const claim = await db
+      .select({
+        id: claims.id,
+        item_id: claims.item_id,
+        claimant_id: claims.claimant_id,
+        item_owner_id: items.user_id,
+        item_title: items.title,
+      })
+      .from(claims)
+      .innerJoin(items, eq(claims.item_id, items.id))
+      .where(eq(claims.id, claimId))
+      .get();
+
+    if (!claim) {
+      redirect("/dashboard?claimSuccess=0&claimMessage=Claim%20chat%20not%20found.");
+    }
+
+    const canAccessClaimChat = user.id === claim.claimant_id || user.id === claim.item_owner_id;
+    if (!canAccessClaimChat) {
+      redirect("/dashboard?claimSuccess=0&claimMessage=You%20cannot%20access%20this%20claim%20chat.");
+    }
+
+    itemId = claim.item_id;
+    refItemId = claim.item_id;
+    claimChatTitle = `Claim chat: ${claim.item_title}`;
+  }
 
   const pickerRows = await db
     .select({ id: items.id, title: items.title, status: items.status })
@@ -61,6 +92,8 @@ export default async function ChatPage({ searchParams }: ChatPageProps) {
     <ChatRoom
       currentUserId={user.id}
       itemId={itemId}
+      claimId={claimId}
+      claimChatTitle={claimChatTitle}
       itemTitle={itemTitle}
       initialReferencedItemId={refItemId}
       initialReferencedItemTitle={referencedItemTitle}
