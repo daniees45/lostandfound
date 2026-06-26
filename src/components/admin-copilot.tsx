@@ -19,6 +19,20 @@ export function AdminCopilot({
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
+  // Pick random prompts from a larger list on initial render
+  const [randomPrompts] = useState(() => {
+    const allPrompts = [
+      "Summarize today's activity",
+      "Which items have been unclaimed the longest?",
+      "Are there any high-risk fraudulent claims?",
+      "Which category has the most lost items?",
+      "How many total users are registered?",
+      "Show me recently resolved returned items",
+      "Find potential matches between lost and found items",
+    ];
+    return allPrompts.sort(() => 0.5 - Math.random()).slice(0, 3);
+  });
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!query.trim()) return;
@@ -72,7 +86,13 @@ export function AdminCopilot({
         </p>
       ) : null}
 
-      {response ? (
+      {isPending ? (
+        <div className="mt-4 space-y-3 rounded-xl border border-violet-100 bg-violet-50 p-4 dark:border-violet-900 dark:bg-violet-950">
+          <div className="h-4 w-1/4 animate-pulse rounded bg-violet-200 dark:bg-violet-800"></div>
+          <div className="h-4 w-3/4 animate-pulse rounded bg-violet-200 dark:bg-violet-800"></div>
+          <div className="h-4 w-1/2 animate-pulse rounded bg-violet-200 dark:bg-violet-800"></div>
+        </div>
+      ) : response ? (
         <div className="mt-4 space-y-3 rounded-xl border border-violet-100 bg-violet-50 p-4 text-sm dark:border-violet-900 dark:bg-violet-950">
           {response.answer ? (
             <div>
@@ -80,17 +100,6 @@ export function AdminCopilot({
                 Answer
               </p>
               <p className="text-sky-900 dark:text-sky-100">{response.answer}</p>
-            </div>
-          ) : null}
-
-          {response.suggested_query ? (
-            <div>
-              <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-violet-500">
-                Suggested Query
-              </p>
-              <code className="block rounded-md bg-violet-100 px-3 py-2 text-xs dark:bg-violet-900">
-                {response.suggested_query}
-              </code>
             </div>
           ) : null}
 
@@ -110,7 +119,7 @@ export function AdminCopilot({
             </div>
           ) : null}
 
-          {!response.answer && !response.suggested_query && !response.insights?.length ? (
+          {!response.answer && !response.insights?.length ? (
             <pre className="overflow-x-auto whitespace-pre-wrap text-xs text-sky-700 dark:text-sky-300">
               {JSON.stringify(response, null, 2)}
             </pre>
@@ -120,11 +129,7 @@ export function AdminCopilot({
 
       {/* Quick prompts */}
       <div className="mt-3 flex flex-wrap gap-2">
-        {[
-          "Summarize today's activity",
-          "Which items have been unclaimed the longest?",
-          "Show claim approval rate",
-        ].map((prompt) => (
+        {randomPrompts.map((prompt) => (
           <button
             key={prompt}
             type="button"

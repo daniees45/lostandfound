@@ -211,8 +211,8 @@ export function ChatRoom({
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-8">
-      <div className="rounded-2xl border border-sky-200 bg-white dark:border-sky-800 dark:bg-sky-950">
+    <div className="flex h-full flex-col">
+      <div className="flex flex-1 flex-col overflow-hidden rounded-2xl bg-white dark:bg-sky-950 md:rounded-l-none">
         <div className="border-b border-sky-200 px-5 py-4 dark:border-sky-800">
           <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-100">{title}</h1>
           
@@ -233,7 +233,7 @@ export function ChatRoom({
           ) : null}
         </div>
 
-        <div className="h-[420px] overflow-y-auto px-4 py-4">
+        <div className="flex-1 overflow-y-auto px-4 py-4">
           {loading ? <p className="text-sm text-sky-600">Loading messages...</p> : null}
           {!loading && messages.length === 0 ? (
             <p className="text-sm text-sky-600">No messages yet. Start the conversation.</p>
