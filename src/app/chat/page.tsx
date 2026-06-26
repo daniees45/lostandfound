@@ -90,11 +90,6 @@ export default async function ChatPage({ searchParams }: ChatPageProps) {
   }
 
   // Sidebar data queries
-  const myItems = await db
-    .select({ id: items.id, title: items.title })
-    .from(items)
-    .where(eq(items.user_id, user.id));
-
   const myClaims = await db
     .select({ id: claims.id, itemTitle: items.title })
     .from(claims)
@@ -106,6 +101,15 @@ export default async function ChatPage({ searchParams }: ChatPageProps) {
     .from(claims)
     .innerJoin(items, eq(claims.item_id, items.id))
     .where(eq(items.user_id, user.id));
+
+  const privateChats = [...myClaims, ...claimsOnMyItems].reduce((acc, current) => {
+    const x = acc.find((item) => item.id === current.id);
+    if (!x) {
+      return acc.concat([current]);
+    } else {
+      return acc;
+    }
+  }, [] as typeof myClaims);
 
   return (
     <div className="mx-auto flex h-[calc(100vh-5rem)] max-w-7xl overflow-hidden pt-6 px-4 sm:px-6 lg:px-8">
@@ -127,50 +131,10 @@ export default async function ChatPage({ searchParams }: ChatPageProps) {
             </Link>
           </div>
 
-          {myItems.length > 0 && (
+          {privateChats.length > 0 && (
             <div>
-              <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-sky-500">My Items</h3>
-              {myItems.map((item) => (
-                <Link
-                  key={item.id}
-                  href={`/chat?itemId=${item.id}`}
-                  className={`block truncate rounded-md px-3 py-2 text-sm transition-colors ${
-                    itemId === item.id
-                      ? "bg-sky-200 font-medium text-sky-900 dark:bg-sky-800 dark:text-sky-100"
-                      : "text-sky-700 hover:bg-sky-100 dark:text-sky-300 dark:hover:bg-sky-800/50"
-                  }`}
-                >
-                  {item.title}
-                </Link>
-              ))}
-            </div>
-          )}
-
-          {myClaims.length > 0 && (
-            <div>
-              <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-sky-500">My Claims</h3>
-              {myClaims.map((claim) => (
-                <Link
-                  key={claim.id}
-                  href={`/chat?claimId=${claim.id}`}
-                  className={`block truncate rounded-md px-3 py-2 text-sm transition-colors ${
-                    claimId === claim.id
-                      ? "bg-sky-200 font-medium text-sky-900 dark:bg-sky-800 dark:text-sky-100"
-                      : "text-sky-700 hover:bg-sky-100 dark:text-sky-300 dark:hover:bg-sky-800/50"
-                  }`}
-                >
-                  Claim: {claim.itemTitle}
-                </Link>
-              ))}
-            </div>
-          )}
-
-          {claimsOnMyItems.length > 0 && (
-            <div>
-              <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-sky-500">
-                Claims on My Items
-              </h3>
-              {claimsOnMyItems.map((claim) => (
+              <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-sky-500">Private Chats</h3>
+              {privateChats.map((claim) => (
                 <Link
                   key={claim.id}
                   href={`/chat?claimId=${claim.id}`}
