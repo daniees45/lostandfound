@@ -4,7 +4,7 @@
 
 const AI_SERVICE_URL =
   process.env.NEXT_PUBLIC_AI_SERVICE_URL ||
-  "https://lostandfound-project.onrender.com";
+  "https://lostfound-ai-backend.onrender.com";
 
 // ==================== SMART MATCH ====================
 export async function getSmartMatches(
