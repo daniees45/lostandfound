@@ -5,6 +5,7 @@ import { getSiteLogoUrl } from "@/lib/app-settings";
 import { initializeDatabase } from "@/lib/db";
 import { chat_messages, chat_reads, notifications, profiles } from "@/lib/schema";
 import { signOut } from "@/app/actions/auth";
+import { NotificationBadge } from "@/components/notification-badge";
 
 const publicLinks = [
   { href: "/", label: "Home" },
@@ -104,10 +105,8 @@ export async function AppNav() {
                         {unreadChat}
                       </span>
                     ) : null}
-                    {link.href === "/notifications" && unreadNotifications > 0 ? (
-                      <span className="ml-1.5 rounded-full bg-white px-1.5 py-0.5 text-[11px] text-sky-700">
-                        {unreadNotifications}
-                      </span>
+                    {link.href === "/notifications" ? (
+                      <NotificationBadge initialCount={unreadNotifications} />
                     ) : null}
                   </Link>
                 </li>

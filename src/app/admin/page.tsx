@@ -1,15 +1,16 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { desc, eq } from "drizzle-orm";
+import { aliasedTable, desc, eq } from "drizzle-orm";
 import { getCurrentUser } from "@/lib/auth";
 import { initializeDatabase } from "@/lib/db";
 import { getSiteLogoUrl } from "@/lib/app-settings";
-import { claims as claimsTable, items as itemsTable, profiles } from "@/lib/schema";
+import { claims as claimsTable, items as itemsTable, profiles, custody_logs } from "@/lib/schema";
 import { Item } from "@/lib/types";
 import { AdminLogoSettings } from "@/components/admin-logo-settings";
 import { AdminItemsTable } from "@/components/admin-items-table";
 import { AdminUsersTable, AdminClaimsTable } from "@/components/admin-users-table";
 import { AdminCopilot } from "@/components/admin-copilot";
+import { AdminLogsTable } from "@/components/admin-logs-table";
 
 type Profile = {
   id: string;
@@ -45,7 +46,10 @@ export default async function AdminPage() {
 
   if (profile?.role !== "admin") redirect("/dashboard");
 
-  const [logoUrl, itemsData, usersData, claimsRaw] = await Promise.all([
+  const fromProfiles = aliasedTable(profiles, "from_profiles");
+  const toProfiles = aliasedTable(profiles, "to_profiles");
+
+  const [logoUrl, itemsData, usersData, claimsRaw, logsData] = await Promise.all([
     getSiteLogoUrl(),
     db
       .select({
@@ -85,6 +89,22 @@ export default async function AdminPage() {
       .from(claimsTable)
       .orderBy(desc(claimsTable.created_at))
       .limit(200),
+    db
+      .select({
+        id: custody_logs.id,
+        item_title: itemsTable.title,
+        from_user_email: fromProfiles.email,
+        to_user_email: toProfiles.email,
+        verification_method: custody_logs.verification_method,
+        notes: custody_logs.notes,
+        created_at: custody_logs.created_at,
+      })
+      .from(custody_logs)
+      .innerJoin(itemsTable, eq(custody_logs.item_id, itemsTable.id))
+      .leftJoin(fromProfiles, eq(custody_logs.from_user_id, fromProfiles.id))
+      .leftJoin(toProfiles, eq(custody_logs.to_user_id, toProfiles.id))
+      .orderBy(desc(custody_logs.created_at))
+      .limit(200),
   ]);
 
   const items = (itemsData ?? []).map((item) => ({
@@ -109,6 +129,13 @@ export default async function AdminPage() {
     created_at: c.created_at?.toISOString(),
     item_title: itemTitleMap.get(c.item_id),
     claimant_email: userEmailMap.get(c.claimant_id),
+  }));
+
+  const logs = (logsData ?? []).map((log) => ({
+    ...log,
+    from_user_email: log.from_user_email ?? "System",
+    to_user_email: log.to_user_email ?? "System",
+    created_at: log.created_at?.toISOString() ?? new Date().toISOString(),
   }));
 
   return (
@@ -195,6 +222,20 @@ export default async function AdminPage() {
           </span>
         </h2>
         <AdminClaimsTable claims={claims} />
+      </section>
+
+      {/* Custody Logs */}
+      <section className="mb-10">
+        <h2 className="mb-3 text-lg font-semibold">
+          Custody Handover Logs{" "}
+          <span className="ml-1 rounded-full bg-sky-100 px-2 py-0.5 text-xs text-sky-700 dark:bg-sky-900 dark:text-sky-300">
+            {logs.length}
+          </span>
+        </h2>
+        <p className="mb-3 text-sm text-sky-700 dark:text-sky-300">
+          Audit trail for all items moving in and out of pickup custody.
+        </p>
+        <AdminLogsTable logs={logs} />
       </section>
     </div>
   );
