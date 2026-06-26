@@ -20,6 +20,7 @@ type PendingClaim = {
   clean_proof_description?: string | null;
   created_at?: string;
   status: "pending" | "approved" | "rejected";
+  item_title?: string;
 };
 
 function parseClaimProof(proof?: string | null): {
@@ -175,6 +176,40 @@ export default async function DashboardPage({
       .filter((claim) => claim.status === "pending") ?? []) as PendingClaim[];
   }
 
+  let mySubmittedClaims: PendingClaim[] = [];
+  const submittedClaimsData = await db
+    .select({
+      id: claimsTable.id,
+      item_id: claimsTable.item_id,
+      item_title: itemsTable.title,
+      claimant_id: claimsTable.claimant_id,
+      claimant_name: profiles.full_name,
+      claimant_email: profiles.email,
+      proof_description: claimsTable.proof_description,
+      created_at: claimsTable.created_at,
+      status: claimsTable.status,
+    })
+    .from(claimsTable)
+    .innerJoin(profiles, eq(claimsTable.claimant_id, profiles.id))
+    .innerJoin(itemsTable, eq(claimsTable.item_id, itemsTable.id))
+    .where(eq(claimsTable.claimant_id, user.id))
+    .orderBy(desc(claimsTable.created_at))
+    .limit(30);
+
+  mySubmittedClaims = (submittedClaimsData
+    .map((claim) => {
+      const parsedProof = parseClaimProof(claim.proof_description);
+      return {
+        ...claim,
+        claimant_name: claim.claimant_name ?? "Unknown claimant",
+        claimant_email: claim.claimant_email ?? "No email",
+        clean_proof_description: parsedProof.cleanProof,
+        credibility_score: parsedProof.credibilityScore,
+        created_at: claim.created_at?.toISOString(),
+      };
+    })
+    .filter((claim) => claim.status === "pending") ?? []) as PendingClaim[];
+
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-8">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -281,6 +316,45 @@ export default async function DashboardPage({
       ) : null}
 
       <section className="mt-8">
+        <h2 className="mb-3 font-medium">My Pending Claims</h2>
+        {mySubmittedClaims.length === 0 ? (
+          <p className="text-sm text-sky-600 dark:text-sky-400">You have no pending claims.</p>
+        ) : (
+          <div className="space-y-3">
+            {mySubmittedClaims.map((claim) => (
+              <article
+                key={claim.id}
+                className="rounded-xl border border-emerald-200 bg-white p-4 dark:border-emerald-800 dark:bg-emerald-950/20"
+              >
+                <p className="text-sm">
+                  <strong>Item:</strong>{" "}
+                  <Link href={`/items/${claim.item_id}`} className="hover:underline">
+                    {claim.item_title ?? claim.item_id}
+                  </Link>
+                </p>
+                <p className="mt-1 text-sm text-sky-700 dark:text-sky-300">
+                  <strong>Status:</strong> <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-800">Pending</span>
+                </p>
+                {claim.clean_proof_description ? (
+                  <p className="mt-1 text-sm text-sky-700 dark:text-sky-300">
+                    <strong>Your Proof:</strong> {claim.clean_proof_description}
+                  </p>
+                ) : null}
+                <div className="mt-3 flex gap-2">
+                  <Link
+                    href={`/chat?claimId=${claim.id}`}
+                    className="rounded-md border border-emerald-300 px-3 py-1.5 text-xs hover:bg-emerald-100 dark:border-emerald-700 dark:hover:bg-emerald-900"
+                  >
+                    Chat with reviewer
+                  </Link>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="mt-8">
         <h2 className="mb-3 font-medium">Pending Claims On My Items</h2>
         {pendingClaims.length === 0 ? (
           <p className="text-sm text-sky-600 dark:text-sky-400">No pending claims right now.</p>
@@ -297,11 +371,6 @@ export default async function DashboardPage({
                 <p className="mt-1 text-sm text-sky-700 dark:text-sky-300">
                   <strong>Claimant:</strong> {claim.claimant_name} ({claim.claimant_email})
                 </p>
-                {claim.credibility_score != null ? (
-                  <p className="mt-1 text-sm text-sky-700 dark:text-sky-300">
-                    <strong>Credibility score:</strong> {claim.credibility_score.toFixed(2)}
-                  </p>
-                ) : null}
                 {claim.clean_proof_description ? (
                   <p className="mt-1 text-sm text-sky-700 dark:text-sky-300">
                     <strong>Proof:</strong> {claim.clean_proof_description}
