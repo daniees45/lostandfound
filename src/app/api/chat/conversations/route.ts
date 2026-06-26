@@ -43,14 +43,56 @@ export async function GET(request: NextRequest) {
   // Combine and deduplicate
   const allConversationsMap = new Map();
   [...myClaims, ...claimsOnMyItems].forEach((conv) => {
-    if (!allConversationsMap.has(conv.claimId)) {
-      allConversationsMap.set(conv.claimId, {
-        claimId: conv.claimId,
+    if (!allConversationsMap.has(`claim_${conv.claimId}`)) {
+      allConversationsMap.set(`claim_${conv.claimId}`, {
+        id: conv.claimId,
+        type: "claim",
         itemTitle: conv.itemTitle,
-        otherUserId: conv.otherUserId,
         otherUserName: conv.otherUserName || conv.otherUserEmail || "Unknown User",
         latestMessageBody: null as string | null,
         latestMessageCreatedAt: null as string | null,
+        roomId: `room_claim_${conv.claimId}`,
+      });
+    }
+  });
+
+  // 3. Fetch items the user owns
+  const myItems = await db
+    .select({
+      itemId: items.id,
+      itemTitle: items.title,
+    })
+    .from(items)
+    .where(eq(items.user_id, user.id));
+
+  // 4. Fetch item chats where the user has sent a message
+  const myMessageRooms = await db
+    .selectDistinct({ room_id: chat_messages.room_id })
+    .from(chat_messages)
+    .where(eq(chat_messages.sender_id, user.id));
+
+  // Get item ids from room ids (room_item_{id})
+  const participatedItemIds = myMessageRooms
+    .filter((r) => r.room_id && r.room_id.startsWith("room_item_"))
+    .map((r) => r.room_id!.replace("room_item_", ""));
+
+  const participatedItems = participatedItemIds.length > 0 
+    ? await db
+        .select({ itemId: items.id, itemTitle: items.title })
+        .from(items)
+        .where(inArray(items.id, participatedItemIds))
+    : [];
+
+  [...myItems, ...participatedItems].forEach((item) => {
+    if (!allConversationsMap.has(`item_${item.itemId}`)) {
+      allConversationsMap.set(`item_${item.itemId}`, {
+        id: item.itemId,
+        type: "item",
+        itemTitle: item.itemTitle,
+        otherUserName: "Item Chat", // Generic name since it's a lobby
+        latestMessageBody: null as string | null,
+        latestMessageCreatedAt: null as string | null,
+        roomId: `room_item_${item.itemId}`,
       });
     }
   });
@@ -58,7 +100,7 @@ export async function GET(request: NextRequest) {
   const conversations = Array.from(allConversationsMap.values());
 
   if (conversations.length > 0) {
-    const roomIds = conversations.map((c) => `room_claim_${c.claimId}`);
+    const roomIds = conversations.map((c) => c.roomId);
 
     // Fetch the latest message for these rooms
     // Since we just want the latest, we can fetch messages for these rooms and group them in memory
@@ -75,8 +117,13 @@ export async function GET(request: NextRequest) {
 
     // Map messages back to conversations
     for (const msg of messages) {
-      const claimId = msg.room_id.replace("room_claim_", "");
-      const conv = allConversationsMap.get(claimId);
+      if (!msg.room_id) continue;
+      
+      const convKey = msg.room_id.startsWith("room_claim_") 
+        ? `claim_${msg.room_id.replace("room_claim_", "")}`
+        : `item_${msg.room_id.replace("room_item_", "")}`;
+        
+      const conv = allConversationsMap.get(convKey);
       if (conv && !conv.latestMessageBody) {
         conv.latestMessageBody = msg.body;
         conv.latestMessageCreatedAt = msg.created_at ? msg.created_at.toISOString() : null;

@@ -5,9 +5,9 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
 type Conversation = {
-  claimId: string;
+  id: string;
+  type: "claim" | "item";
   itemTitle: string;
-  otherUserId: string;
   otherUserName: string;
   latestMessageBody: string | null;
   latestMessageCreatedAt: string | null;
@@ -86,29 +86,35 @@ export function ChatSidebar() {
             <p className="px-3 text-xs text-sky-600 dark:text-sky-400">No private chats yet.</p>
           ) : (
             <div className="space-y-1">
-              {conversations.map((conv) => (
-                <Link
-                  key={conv.claimId}
-                  href={`/chat?claimId=${conv.claimId}`}
-                  className={`block rounded-md px-3 py-2 transition-colors ${
-                    currentClaimId === conv.claimId
-                      ? "bg-sky-200 text-sky-900 dark:bg-sky-800 dark:text-sky-100"
-                      : "text-sky-700 hover:bg-sky-100 dark:text-sky-300 dark:hover:bg-sky-800/50"
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="truncate font-medium text-sm">{conv.otherUserName}</span>
-                  </div>
-                  <div className="mt-0.5 text-xs opacity-75 truncate">
-                    {conv.itemTitle}
-                  </div>
-                  {conv.latestMessageBody && (
-                    <div className="mt-1 text-xs opacity-60 truncate">
-                      {conv.latestMessageBody}
+              {conversations.map((conv) => {
+                const isActive = conv.type === "claim" 
+                  ? currentClaimId === conv.id 
+                  : currentItemId === conv.id;
+                  
+                return (
+                  <Link
+                    key={`${conv.type}_${conv.id}`}
+                    href={conv.type === "claim" ? `/chat?claimId=${conv.id}` : `/chat?itemId=${conv.id}`}
+                    className={`block rounded-md px-3 py-2 transition-colors ${
+                      isActive
+                        ? "bg-sky-200 text-sky-900 dark:bg-sky-800 dark:text-sky-100"
+                        : "text-sky-700 hover:bg-sky-100 dark:text-sky-300 dark:hover:bg-sky-800/50"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="truncate font-medium text-sm">{conv.otherUserName}</span>
                     </div>
-                  )}
-                </Link>
-              ))}
+                    <div className="mt-0.5 text-xs opacity-75 truncate">
+                      {conv.itemTitle}
+                    </div>
+                    {conv.latestMessageBody && (
+                      <div className="mt-1 text-xs opacity-60 truncate">
+                        {conv.latestMessageBody}
+                      </div>
+                    )}
+                  </Link>
+                );
+              })}
             </div>
           )}
         </div>
